@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "actuisense"
+version = "0.1.0"
+description = "Cross-platform terminal UI to configure Actisense NMEA 2000 gateways (NGT-1/NGW-1) over serial or TCP"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "phobicdotno" }]
+keywords = ["actisense", "nmea2000", "ngt-1", "ngw-1", "canbus", "tui", "marine"]
+classifiers = [
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Communications",
+    "Topic :: System :: Hardware :: Hardware Drivers",
+]
+dependencies = [
+    "pyserial>=3.5",
+    "textual>=0.50",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+actuisense = "actuisense.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/phobicdotno/actuisense"
+Issues = "https://github.com/phobicdotno/actuisense/issues"
+
+[tool.setuptools]
+packages = ["actuisense"]
+
+[tool.setuptools.package-data]
+actuisense = ["data/*.json"]
