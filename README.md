@@ -7,22 +7,11 @@ Windows-only **Actisense NMEA Reader → Hardware Configuration**.
 Runs anywhere Python runs: **Linux, macOS, and Windows (PowerShell / Windows
 Terminal)**.
 
-```
-┌─ AcTuiSense ───────────────── /dev/ttyUSB0 @115200 ─┐
-│ Model: NGT-1-USB   FW 2.690   NAME 0x…03            │
-│ Operating mode: ( ) Filter   (•) Receive-All        │
-│                                                     │
-│  PGN      Name                        RX   TX       │
-│  126992   System Time                 [x]  [ ]      │
-│  127245   Rudder                       [x]  [ ]      │
-│  127250   Vessel Heading              [x]  [x]      │
-│  127512   AGS Configuration Status    [ ]  [x]      │
-│  127514   AGS Status                  [ ]  [x]      │
-│  127751   DC Voltage/Current          [ ]  [x]      │
-│  …                                                  │
-│ [Activate] [Commit→EEPROM] [Reload] [Filter: ____ ] │
-└─────────────────────────────────────────────────────┘
-```
+![AcTuiSense screenshot](docs/screenshot.svg)
+
+> Validated end-to-end against a real **Actisense NGT-1** — reading the operating
+> mode and Rx/Tx enable lists, toggling per-PGN filters, activating, and committing
+> to EEPROM.
 
 ## Why
 
