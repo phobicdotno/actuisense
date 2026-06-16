@@ -56,6 +56,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_list.add_argument("which", choices=_WHICH.keys())
     _add_conn(p_list)
 
+    p_raw = sub.add_parser("raw", help="dump raw gateway diagnostic queries (read-only, hex)")
+    _add_conn(p_raw)
+
     p_tui = sub.add_parser("tui", help="launch the full-screen terminal UI")
     _add_conn(p_tui)
 
@@ -102,6 +105,21 @@ def cmd_list(gw: Gateway, db: PgnDb, which: PgnList) -> int:
     return 0
 
 
+def cmd_raw(gw: Gateway) -> int:
+    """Read-only dump of the gateway's diagnostic queries as hex.
+
+    These payloads are vendor-binary; AcTuiSense does not guess their field
+    meanings. Shown raw so you can inspect them (and so a future parser has data).
+    """
+    from .protocol import Op
+    print("Gateway: %s  (raw diagnostic queries -- read only)" % gw.name)
+    for op in (Op.HARDWARE_INFO, Op.PRODUCT_INFO_N2K, Op.SUPPORTED_PGN_LIST,
+               Op.TOTAL_TIME, Op.OPERATING_MODE):
+        data = gw.raw_query(op)
+        print("  %-18s [%3d]  %s" % (op.name, len(data), data.hex(" ") or "(no reply)"))
+    return 0
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     args = build_parser().parse_args(argv)
 
@@ -128,6 +146,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 return cmd_enable(gw, db, _WHICH[args.which], args.pgns, False, args.commit)
             if args.cmd == "list":
                 return cmd_list(gw, db, _WHICH[args.which])
+            if args.cmd == "raw":
+                return cmd_raw(gw)
     except GatewayError as e:
         print("gateway error: %s" % e, file=sys.stderr)
         return 1

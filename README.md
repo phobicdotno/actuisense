@@ -58,6 +58,25 @@ actuisense mode rxall  -p /dev/ttyUSB0           # or: filter
 actuisense list tx     -p /dev/ttyUSB0
 ```
 
+## Settings coverage
+
+| Setting | CLI | TUI | Notes |
+|---|---|---|---|
+| Operating mode (Filter / Receive-All) | `mode` | `m` | the `0x11` command |
+| Per-PGN **Rx** enable (all 339 PGNs) | `enable/disable rx` | `r` | `0x46` |
+| Per-PGN **Tx** enable (all 339 PGNs) | `enable/disable tx` | `t` | `0x47` |
+| Activate enable lists | implicit | `a` | `0x4B` |
+| Commit to EEPROM (persist) | `--commit` | `c` | `0x01` |
+| Read current Rx/Tx lists & mode | `info` / `list` | on connect | parsed |
+| Raw diagnostic queries (hw/product/total-time) | `raw` | — | read-only hex; vendor-binary fields are **not** guessed |
+
+Deliberately **not** wired up yet: serial/CAN baud change, NMEA 0183 P-code, and
+duplicate-filtering — these can disrupt the link, and their payloads are not
+publicly specified, so they are left out rather than guessed. Device model/firmware
+identification (via N2K PGN 126996) is a planned addition. The `protocol` module
+already encodes the full Actisense command set, so adding these is straightforward
+once each is verified against hardware.
+
 ## Status
 
 Early but working: the protocol codec is validated against real NGT-1 captures
