@@ -1,2040 +1,1702 @@
 {
 "_source": "canboat docs/canboat.json (Apache-2.0)",
 "_note": "PGN number/name/frame-type for the RX/TX filter list",
+"_generated_by": "tools/gen_pgndb.py",
 "version": "6.2.0",
 "pgns": [
 {
 "pgn": 59392,
-"name": "0xE800-0xEE00: Standardized single-frame addressed",
-"type": "Single",
+"name": "ISO Acknowledgement",
 "fast": false
 },
 {
 "pgn": 59904,
 "name": "ISO Request",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 60160,
 "name": "ISO Transport Protocol, Data Transfer",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 60416,
-"name": "ISO Transport Protocol, Connection Management - Broadcast Announce",
-"type": "Single",
+"name": "ISO Transport Protocol, Connection Management - Abort",
 "fast": false
 },
 {
 "pgn": 60928,
 "name": "ISO Address Claim",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 61184,
-"name": "0xEF00: Manufacturer Proprietary single-frame addressed",
-"type": "Single",
+"name": "Victron Battery Register",
 "fast": false
 },
 {
 "pgn": 61440,
 "name": "0xF000-0xFEFF: Standardized single-frame non-addressed",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65001,
 "name": "Bus #1 Phase C Basic AC Quantities",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65002,
 "name": "Bus #1 Phase B Basic AC Quantities",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65003,
 "name": "Bus #1 Phase A Basic AC Quantities",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65004,
 "name": "Bus #1 Average Basic AC Quantities",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65005,
 "name": "Utility Total AC Energy",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65006,
 "name": "Utility Phase C AC Reactive Power",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65007,
 "name": "Utility Phase C AC Power",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65008,
 "name": "Utility Phase C Basic AC Quantities",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65009,
 "name": "Utility Phase B AC Reactive Power",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65010,
 "name": "Utility Phase B AC Power",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65011,
 "name": "Utility Phase B Basic AC Quantities",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65012,
 "name": "Utility Phase A AC Reactive Power",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65013,
 "name": "Utility Phase A AC Power",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65014,
 "name": "Utility Phase A Basic AC Quantities",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65015,
 "name": "Utility Total AC Reactive Power",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65016,
 "name": "Utility Total AC Power",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65017,
 "name": "Utility Average Basic AC Quantities",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65018,
 "name": "Generator Total AC Energy",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65019,
 "name": "Generator Phase C AC Reactive Power",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65020,
 "name": "Generator Phase C AC Power",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65021,
 "name": "Generator Phase C Basic AC Quantities",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65022,
 "name": "Generator Phase B AC Reactive Power",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65023,
 "name": "Generator Phase B AC Power",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65024,
 "name": "Generator Phase B Basic AC Quantities",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65025,
 "name": "Generator Phase A AC Reactive Power",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65026,
 "name": "Generator Phase A AC Power",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65027,
 "name": "Generator Phase A Basic AC Quantities",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65028,
 "name": "Generator Total AC Reactive Power",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65029,
 "name": "Generator Total AC Power",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65030,
 "name": "Generator Average Basic AC Quantities",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 65240,
 "name": "ISO Commanded Address",
-"type": "ISO",
 "fast": false
 },
 {
 "pgn": 65280,
-"name": "0xFF00-0xFFFF: Manufacturer Proprietary single-frame non-addressed",
-"type": "Single",
+"name": "Furuno: Heave  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65281,
-"name": "BEP Marine: Proprietary PGN 65281",
-"type": "Single",
+"name": "Yanmar: Engine Data B  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65282,
-"name": "BEP Marine: CZone Alarm Event",
-"type": "Single",
+"name": "Maretron: Number of Channels  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65283,
-"name": "BEP Marine: CZone Channel State",
-"type": "Single",
+"name": "BEP Marine: CZone Channel State  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65284,
-"name": "Maretron: Proprietary DC Breaker Current",
-"type": "Single",
+"name": "Honda: Engine Alerts  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65285,
-"name": "Maretron: Universal Configuration SF",
-"type": "Single",
+"name": "Lowrance: Temperature  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65286,
-"name": "Airmar: Boot State Request",
-"type": "Single",
+"name": "Chetco: Dimmer  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65287,
-"name": "Simnet: Configure Temperature Sensor",
-"type": "Single",
+"name": "Airmar: Access Level  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65288,
-"name": "Maretron: 4-20 mA",
-"type": "Single",
+"name": "Seatalk: Alarm  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65289,
-"name": "Simnet: Trim Tab Sensor Calibration",
-"type": "Single",
+"name": "Maretron: 0-10 V  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65290,
-"name": "Simnet: Paddle Wheel Speed Configuration",
-"type": "Single",
+"name": "Maretron: Rotational Rate  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65291,
-"name": "Maretron: Resistance",
-"type": "Single",
+"name": "Maretron: Resistance  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65292,
-"name": "Maretron: Automation Function Master",
-"type": "Single",
+"name": "Simnet: Clear Fluid Level Warnings  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65293,
-"name": "Diverse Yacht Services: Load Cell",
-"type": "Single",
+"name": "Simnet: LGC-2000 Configuration  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65294,
-"name": "BEP Marine: Proprietary PGN 65294",
-"type": "Single",
+"name": "BEP Marine: Proprietary PGN 65294  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65295,
-"name": "BEP Marine: CZone Alarm",
-"type": "Single",
+"name": "BEP Marine: CZone Alarm  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65296,
-"name": "BEP Marine: Proprietary PGN 65296",
-"type": "Single",
+"name": "BEP Marine: Proprietary PGN 65296  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65297,
-"name": "BEP Marine: Proprietary PGN 65297",
-"type": "Single",
+"name": "BEP Marine: Proprietary PGN 65297  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65298,
-"name": "Suzuki: Engine Data A",
-"type": "Single",
+"name": "Suzuki: Engine Data A  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65299,
-"name": "BEP Marine: CZone Alarm String Request",
-"type": "Single",
+"name": "Suzuki: Engine Data B  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65300,
-"name": "BEP Marine: Proprietary PGN 65300",
-"type": "Single",
+"name": "Suzuki: Engine Data C  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65301,
-"name": "BEP Marine: CZone 65301",
-"type": "Single",
+"name": "BEP Marine: CZone 65301  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65302,
-"name": "Simnet: AP Unknown 1",
-"type": "Single",
+"name": "Simnet: AP Unknown 1  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65303,
-"name": "Suzuki: Engine Data D",
-"type": "Single",
+"name": "Suzuki: Engine Data D  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65304,
-"name": "BEP Marine: Proprietary PGN 65304",
-"type": "Single",
+"name": "Suzuki: Engine Data E  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65305,
-"name": "Simnet: Sailing Processor Status",
-"type": "Single",
+"name": "Simnet: Pilot Mode  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65306,
-"name": "BEP Marine: Proprietary PGN 65306",
-"type": "Single",
+"name": "BEP Marine: Proprietary PGN 65306  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65308,
-"name": "BEP Marine: Proprietary PGN 65308",
-"type": "Single",
+"name": "BEP Marine: Proprietary PGN 65308  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65309,
-"name": "Navico: Wireless Battery Status",
-"type": "Single",
+"name": "Navico: Wireless Battery Status  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65310,
-"name": "BEP Marine: Proprietary PGN 65310",
-"type": "Single",
+"name": "BEP Marine: Proprietary PGN 65310  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65311,
-"name": "BEP Marine: Proprietary PGN 65311",
-"type": "Single",
+"name": "BEP Marine: Proprietary PGN 65311  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65312,
-"name": "Navico: Wireless Signal Status",
-"type": "Single",
+"name": "Navico: Wireless Signal Status  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65313,
-"name": "Navico: Proprietary",
-"type": "Single",
+"name": "Navico: Proprietary  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65314,
-"name": "BEP Marine: Proprietary PGN 65314",
-"type": "Single",
+"name": "Yamaha: Gear Status  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65315,
-"name": "Suzuki: Troll Mode Control",
-"type": "Single",
+"name": "Suzuki: Troll Mode Control  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65316,
-"name": "BEP Marine: Proprietary PGN 65316",
-"type": "Single",
+"name": "BEP Marine: Proprietary PGN 65316  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65317,
-"name": "Navico: Proprietary 2",
-"type": "Single",
+"name": "Navico: Proprietary 2  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65325,
-"name": "BEP Marine: Proprietary PGN 65325",
-"type": "Single",
+"name": "BEP Marine: Proprietary PGN 65325  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65329,
-"name": "Yamaha: Engine Data A",
-"type": "Single",
+"name": "Yamaha: Engine Data A  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65330,
-"name": "B&G: Proprietary",
-"type": "Single",
+"name": "B&G: Proprietary  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65332,
-"name": "Yanmar: Engine Data C",
-"type": "Single",
+"name": "Yanmar: Engine Data C  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65340,
-"name": "Simnet: Autopilot Mode State",
-"type": "Single",
+"name": "Simnet: Autopilot Mode State  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65341,
-"name": "Simnet: Autopilot Angle",
-"type": "Single",
+"name": "Simnet: Autopilot Angle  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65344,
-"name": "Yamaha: Engine Data B",
-"type": "Single",
+"name": "Yamaha: Engine Data B  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65345,
-"name": "Seatalk: Pilot Wind Datum",
-"type": "Single",
+"name": "Seatalk: Pilot Wind Datum  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65346,
-"name": "Yanmar: Engine Data D",
-"type": "Single",
+"name": "Yanmar: Engine Data D  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65348,
-"name": "Yanmar: Engine Data E",
-"type": "Single",
+"name": "Yanmar: Engine Data E  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65349,
-"name": "Yanmar: Engine Data F",
-"type": "Single",
+"name": "Yanmar: Engine Data F  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65350,
-"name": "Simnet: Magnetic Field",
-"type": "Single",
+"name": "Simnet: Magnetic Field  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65359,
-"name": "Seatalk: Pilot Heading",
-"type": "Single",
+"name": "Seatalk: Pilot Heading  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65360,
-"name": "Seatalk: Pilot Locked Heading",
-"type": "Single",
+"name": "Seatalk: Pilot Locked Heading  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65361,
-"name": "Seatalk: Silence Alarm",
-"type": "Single",
+"name": "Seatalk: Silence Alarm  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65371,
-"name": "Seatalk: Keypad Message",
-"type": "Single",
+"name": "Seatalk: Keypad Message  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65374,
-"name": "SeaTalk: Keypad Heartbeat",
-"type": "Single",
+"name": "SeaTalk: Keypad Heartbeat  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65379,
-"name": "Seatalk: Pilot Mode",
-"type": "Single",
+"name": "Seatalk: Pilot Mode  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65403,
-"name": "Lumishore: Light Status",
-"type": "Single",
+"name": "Lumishore: Light Status  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65408,
-"name": "Airmar: Depth Quality Factor",
-"type": "Single",
+"name": "Airmar: Depth Quality Factor  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65409,
-"name": "Airmar: Speed Pulse Count",
-"type": "Single",
+"name": "Airmar: Speed Pulse Count  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65410,
-"name": "Airmar: Device Information",
-"type": "Single",
+"name": "Airmar: Device Information  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65420,
-"name": "Simnet: AP Unknown 3",
-"type": "Single",
+"name": "Simnet: AP Unknown 3  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65424,
-"name": "Yamaha: Engine Data C",
-"type": "Single",
+"name": "Yamaha: Engine Data C  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65440,
-"name": "Navico: Naviop Switch Status",
-"type": "Single",
+"name": "Navico: Naviop Switch Status  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65441,
-"name": "Navico: Naviop Switch Control",
-"type": "Single",
+"name": "Navico: Naviop Switch Control  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65472,
-"name": "Yamaha: Engine Data D",
-"type": "Single",
+"name": "Yamaha: Engine Data D  (proprietary)",
 "fast": false
 },
 {
 "pgn": 65480,
-"name": "Simnet: Autopilot Mode",
-"type": "Single",
+"name": "Simnet: Autopilot Mode  (proprietary)",
 "fast": false
 },
 {
 "pgn": 126208,
-"name": "0x1ED00 - 0x1EE00: Standardized fast-packet addressed",
-"type": "Fast",
+"name": "NMEA - Request group function",
 "fast": true
 },
 {
 "pgn": 126464,
 "name": "PGN List (Transmit and Receive)",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 126720,
-"name": "Garmin AHRS ATT: Non-default Calibration Matrix Present",
-"type": "Fast",
+"name": "Fusion: Set Mute  (proprietary)",
 "fast": true
 },
 {
 "pgn": 126976,
 "name": "0x1F000-0x1FEFF: Standardized mixed single/fast packet non-addressed",
-"type": "Mixed",
 "fast": false
 },
 {
 "pgn": 126983,
 "name": "Alert",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 126984,
 "name": "Alert Response",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 126985,
 "name": "Alert Text",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 126986,
 "name": "Alert Configuration",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 126987,
 "name": "Alert Threshold",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 126988,
 "name": "Alert Value",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 126992,
 "name": "System Time",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 126993,
 "name": "Heartbeat",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 126996,
 "name": "Product Information",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 126998,
 "name": "Configuration Information",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 127233,
 "name": "Man Overboard Notification",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 127237,
 "name": "Heading/Track control",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 127245,
 "name": "Rudder",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 127250,
 "name": "Vessel Heading",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 127251,
 "name": "Rate of Turn",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 127252,
 "name": "Heave",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 127257,
 "name": "Attitude",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 127258,
 "name": "Magnetic Variation",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 127488,
 "name": "Engine Parameters, Rapid Update",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 127489,
 "name": "Engine Parameters, Dynamic",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 127490,
 "name": "Electric Drive Status, Dynamic",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 127491,
 "name": "Electric Energy Storage Status, Dynamic",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 127493,
 "name": "Transmission Parameters, Dynamic",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 127494,
 "name": "Electric Drive Information",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 127495,
 "name": "Electric Energy Storage Information",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 127496,
 "name": "Trip Parameters, Vessel",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 127497,
 "name": "Trip Parameters, Engine",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 127498,
 "name": "Engine Parameters, Static",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 127500,
 "name": "Load Controller Connection State/Control",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 127501,
 "name": "Binary Switch Bank Status",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 127502,
 "name": "Switch Bank Control",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 127503,
 "name": "AC Input Status",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 127504,
 "name": "AC Output Status",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 127505,
 "name": "Fluid Level",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 127506,
 "name": "DC Detailed Status",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 127507,
 "name": "Charger Status",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 127508,
 "name": "Battery Status",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 127509,
 "name": "Inverter Status",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 127510,
 "name": "Charger Configuration Status",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 127511,
 "name": "Inverter Configuration Status",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 127512,
 "name": "AGS Configuration Status",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 127513,
 "name": "Battery Configuration Status",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 127514,
 "name": "AGS Status",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 127744,
 "name": "AC Power / Current - Phase A",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 127745,
 "name": "AC Power / Current - Phase B",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 127746,
 "name": "AC Power / Current - Phase C",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 127747,
 "name": "AC Voltage / Frequency - Phase A",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 127748,
 "name": "AC Voltage / Frequency - Phase B",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 127749,
 "name": "AC Voltage / Frequency - Phase C",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 127750,
 "name": "Converter Status",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 127751,
 "name": "DC Voltage/Current",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 128000,
 "name": "Leeway Angle",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 128001,
 "name": "Vessel Acceleration",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 128002,
 "name": "Electric Drive Status, Rapid Update",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 128003,
 "name": "Electric Energy Storage Status, Rapid Update",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 128006,
 "name": "Thruster Control Status",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 128007,
 "name": "Thruster Information",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 128008,
 "name": "Thruster Motor Status",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 128259,
 "name": "Speed",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 128267,
 "name": "Water Depth",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 128275,
 "name": "Distance Log",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 128520,
 "name": "Tracked Target Data",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 128538,
 "name": "Elevator Car Status",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 128768,
 "name": "Elevator Motor Control",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 128769,
 "name": "Elevator Deck Push Button",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 128776,
 "name": "Windlass Control Status",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 128777,
 "name": "Anchor Windlass Operating Status",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 128778,
 "name": "Anchor Windlass Monitoring Status",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 128780,
 "name": "Linear Actuator Control/Status",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 129025,
 "name": "Position, Rapid Update",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 129026,
 "name": "COG & SOG, Rapid Update",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 129027,
 "name": "Position Delta, Rapid Update",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 129028,
 "name": "Altitude Delta, Rapid Update",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 129029,
 "name": "GNSS Position Data",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129033,
 "name": "Time & Date",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 129038,
 "name": "AIS Class A Position Report",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129039,
 "name": "AIS Class B Position Report",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129040,
 "name": "AIS Class B Extended Position Report",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129041,
 "name": "AIS Aids to Navigation (AtoN) Report",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129044,
 "name": "Datum",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129045,
 "name": "User Datum",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129283,
 "name": "Cross Track Error",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 129284,
 "name": "Navigation Data",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129285,
 "name": "Navigation - Route/WP Information",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129291,
 "name": "Set & Drift, Rapid Update",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 129301,
 "name": "Navigation - Route / Time to+from Mark",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129302,
 "name": "Bearing and Distance between two Marks",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129538,
 "name": "GNSS Control Status",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129539,
 "name": "GNSS DOPs",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 129540,
 "name": "GNSS Sats in View",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129541,
 "name": "GPS Almanac Data",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129542,
 "name": "GNSS Pseudorange Noise Statistics",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129545,
 "name": "GNSS RAIM Output",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129546,
 "name": "GNSS RAIM Settings",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 129547,
 "name": "GNSS Pseudorange Error Statistics",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129549,
 "name": "DGNSS Corrections",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129550,
 "name": "GNSS Differential Correction Receiver Interface",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 129551,
 "name": "GNSS Differential Correction Receiver Signal",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129556,
 "name": "GLONASS Almanac Data",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129792,
 "name": "AIS DGNSS Broadcast Binary Message",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129793,
 "name": "AIS UTC and Date Report",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129794,
 "name": "AIS Class A Static and Voyage Related Data",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129795,
 "name": "AIS Addressed Binary Message",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129796,
 "name": "AIS Acknowledge",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129797,
 "name": "AIS Binary Broadcast Message",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129798,
 "name": "AIS SAR Aircraft Position Report",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129799,
 "name": "Radio Frequency/Mode/Power",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129800,
 "name": "AIS UTC/Date Inquiry",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129801,
 "name": "AIS Addressed Safety Related Message",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129802,
 "name": "AIS Safety Related Broadcast Message",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129803,
 "name": "AIS Interrogation",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129804,
 "name": "AIS Assignment Mode Command",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129805,
 "name": "AIS Data Link Management Message",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129806,
 "name": "AIS Channel Management",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129807,
 "name": "AIS Class B Group Assignment",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129808,
-"name": "DSC Distress Call Information",
-"type": "Fast",
+"name": "DSC Call Information",
 "fast": true
 },
 {
 "pgn": 129809,
 "name": "AIS Class B static data (msg 24 Part A)",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 129810,
 "name": "AIS Class B static data (msg 24 Part B)",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130052,
 "name": "Loran-C TD Data",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130053,
 "name": "Loran-C Range Data",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130054,
 "name": "Loran-C Signal Data",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130060,
 "name": "Label",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130061,
 "name": "Channel Source Configuration",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130064,
 "name": "Route and WP Service - Database List",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130065,
 "name": "Route and WP Service - Route List",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130066,
 "name": "Route and WP Service - Route/WP-List Attributes",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130067,
 "name": "Route and WP Service - Route - WP Name & Position",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130068,
 "name": "Route and WP Service - Route - WP Name",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130069,
 "name": "Route and WP Service - XTE Limit & Navigation Method",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130070,
 "name": "Route and WP Service - WP Comment",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130071,
 "name": "Route and WP Service - Route Comment",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130072,
 "name": "Route and WP Service - Database Comment",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130073,
 "name": "Route and WP Service - Radius of Turn",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130074,
 "name": "Route and WP Service - WP List - WP Name & Position",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130306,
 "name": "Wind Data",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 130310,
 "name": "Environmental Parameters (obsolete)",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 130311,
 "name": "Environmental Parameters",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 130312,
 "name": "Temperature",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 130313,
 "name": "Humidity",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 130314,
 "name": "Actual Pressure",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 130315,
 "name": "Set Pressure",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 130316,
 "name": "Temperature Extended Range",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 130320,
 "name": "Tide Station Data",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130321,
 "name": "Salinity Station Data",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130322,
 "name": "Current Station Data",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130323,
 "name": "Meteorological Station Data",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130324,
 "name": "Moored Buoy Station Data",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130329,
 "name": "HVAC Status",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130330,
 "name": "Lighting System Settings",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130560,
 "name": "Payload Mass",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 130561,
 "name": "Lighting Zone",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130562,
 "name": "Lighting Scene",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130563,
 "name": "Lighting Device",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130564,
 "name": "Lighting Device Enumeration",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130565,
 "name": "Lighting Color Sequence",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130566,
 "name": "Lighting Program",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130567,
 "name": "Watermaker Input Setting and Status",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130569,
 "name": "Current Status and File",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130570,
 "name": "Library Data File",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130571,
 "name": "Library Data Group",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130572,
 "name": "Library Data Search",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130573,
 "name": "Supported Source Data",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130574,
 "name": "Supported Zone Data",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130576,
 "name": "Small Craft Status",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 130577,
 "name": "Direction Data",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130578,
 "name": "Vessel Speed Components",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130579,
 "name": "System Configuration",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 130580,
 "name": "System Configuration (deprecated)",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130581,
 "name": "Zone Configuration (deprecated)",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130582,
 "name": "Zone Volume",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 130583,
 "name": "Available Audio EQ presets",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130584,
 "name": "Available Bluetooth addresses",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130585,
 "name": "Bluetooth source status",
-"type": "Single",
 "fast": false
 },
 {
 "pgn": 130586,
 "name": "Zone Configuration",
-"type": "Fast",
 "fast": true
 },
 {
 "pgn": 130816,
-"name": "0x1FF00-0x1FFFF: Manufacturer Specific fast-packet non-addressed",
-"type": "Fast",
+"name": "SonicHub: Track  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130817,
-"name": "Maretron: Annunciator Capabilities",
-"type": "Fast",
+"name": "Navico: Unknown  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130818,
-"name": "BEP Marine: Proprietary PGN 130818",
-"type": "Fast",
+"name": "Maretron: Label  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130819,
-"name": "Maretron: Alert Transmission",
-"type": "Fast",
+"name": "Webasto: HVAC Command  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130820,
-"name": "BEP Marine: CZone Alarm String Response",
-"type": "Fast",
+"name": "Fusion: EQ  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130821,
-"name": "BEP Marine: Proprietary PGN 130821",
-"type": "Fast",
+"name": "Navico: ASCII Data  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130822,
-"name": "BEP Marine: Proprietary PGN 130822",
-"type": "Fast",
+"name": "Navico: Unknown 1  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130823,
-"name": "Maretron: Proprietary Temperature High Range",
-"type": "Fast",
+"name": "Maretron: Proprietary Temperature High Range  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130824,
-"name": "Maretron: Annunciator",
-"type": "Fast",
+"name": "B&G: key-value data  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130825,
-"name": "Maretron: Data Instance Channel Correlation",
-"type": "Fast",
+"name": "Navico: Unknown 2  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130826,
-"name": "BEP Marine: Proprietary PGN 130826",
-"type": "Fast",
+"name": "Maretron: Switch Indicator Status  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130827,
-"name": "Lowrance: unknown",
-"type": "Fast",
+"name": "Lowrance: unknown  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130828,
-"name": "Maretron: Dometic HVAC Control Status",
-"type": "Fast",
+"name": "Simnet: Set Serial Number  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130829,
-"name": "Mercury: Engine Status",
-"type": "Fast",
+"name": "Mercury: Engine Status  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130830,
-"name": "Maretron: Dometic HVAC Status",
-"type": "Fast",
+"name": "Suzuki: Engine Data  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130831,
-"name": "Suzuki: Engine and Storage Device Config",
-"type": "Fast",
+"name": "Maretron: Universal Configuration FP  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130832,
-"name": "Simnet: Fuel Used - High Resolution",
-"type": "Fast",
+"name": "Maretron: Vessel Operating Mode  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130833,
-"name": "Maretron: Vessel Data Recorder Status",
-"type": "Fast",
+"name": "B&G: User and Remote rename  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130834,
-"name": "Simnet: Engine and Tank Configuration",
-"type": "Fast",
+"name": "Maretron: SMS Status  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130835,
-"name": "Simnet: Set Engine and Tank Configuration",
-"type": "Fast",
+"name": "Maretron: SMS Text Message  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130836,
-"name": "Simnet: Fluid Level Sensor Configuration",
-"type": "Fast",
+"name": "Maretron: Switch Status Counter  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130837,
-"name": "Simnet: Fuel Flow Turbine Configuration",
-"type": "Fast",
+"name": "Suzuki: Engine Sensor Data  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130838,
-"name": "Simnet: Fluid Level Warning",
-"type": "Fast",
+"name": "Maretron: BNWAS  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130839,
-"name": "Simnet: Pressure Sensor Configuration",
-"type": "Fast",
+"name": "Simnet: Pressure Sensor Configuration  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130840,
-"name": "Simnet: Data User Group Configuration",
-"type": "Fast",
+"name": "Maretron: Generic Sensor  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130841,
-"name": "Maretron: CAN Frame Forwarding",
-"type": "Fast",
+"name": "Maretron: CAN Frame Forwarding  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130842,
-"name": "Simnet: AIS Class B static data (msg 24 Part A)",
-"type": "Fast",
+"name": "Maretron: Windlass Operating Status  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130843,
-"name": "Simnet: Sonar Status, Frequency and DSP Voltage",
-"type": "Fast",
+"name": "Maretron: Windlass Control Command  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130844,
-"name": "Carling: Proprietary",
-"type": "Fast",
+"name": "Carling: Proprietary  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130845,
-"name": "Furuno: Multi Sats In View Extended",
-"type": "Fast",
+"name": "Simnet: Key Value  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130846,
-"name": "Furuno: Motion Sensor Status Extended",
-"type": "Fast",
+"name": "Simnet: Parameter Set  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130847,
-"name": "SeaTalk: Node Statistics",
-"type": "Fast",
+"name": "SeaTalk: Node Statistics  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130848,
-"name": "SeaTalk: Waypoint Information",
-"type": "Fast",
+"name": "SeaTalk: Waypoint Information  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130849,
-"name": "Navico: Proprietary FP",
-"type": "Fast",
+"name": "Navico: Proprietary FP  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130850,
-"name": "Simnet: Command AP Change Course",
-"type": "Fast",
+"name": "Simnet: Alarm  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130851,
-"name": "Simnet: AP command Reply: Change Course",
-"type": "Fast",
+"name": "Simnet: AP command Reply  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130852,
-"name": "Navico: Proprietary 2 FP",
-"type": "Fast",
+"name": "Navico: Proprietary 2 FP  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130856,
-"name": "Simnet: Alarm Message",
-"type": "Fast",
+"name": "Simnet: Alarm Message  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130860,
-"name": "Simnet: AP Unknown 4",
-"type": "Fast",
+"name": "Simnet: AP Unknown 4  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130861,
-"name": "Simrad: Engine Data",
-"type": "Fast",
+"name": "Simrad: Engine Data  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130880,
-"name": "Airmar: Additional Weather Data",
-"type": "Fast",
+"name": "Airmar: Additional Weather Data  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130881,
-"name": "Airmar: Heater Control",
-"type": "Fast",
+"name": "Airmar: Heater Control  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130900,
-"name": "Xantrex: AC Status",
-"type": "Fast",
+"name": "Xantrex: AC Status  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130910,
-"name": "Xantrex: DC Source Configuration Status",
-"type": "Fast",
+"name": "Xantrex: DC Source Configuration Status  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130911,
-"name": "Xantrex: AC Output Configuration Status",
-"type": "Fast",
+"name": "Xantrex: AC Output Configuration Status  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130912,
-"name": "Xantrex: Charger Configuration Status",
-"type": "Fast",
+"name": "Xantrex: Charger Configuration Status  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130913,
-"name": "Xantrex: AC Input Configuration Status",
-"type": "Fast",
+"name": "Xantrex: AC Input Configuration Status  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130918,
-"name": "SeaTalk: Route Information",
-"type": "Fast",
+"name": "SeaTalk: Route Information  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130921,
-"name": "Carling: Breaker Status and Configuration",
-"type": "Fast",
+"name": "Carling: Breaker Status and Configuration  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130939,
-"name": "Lumishore: Light Control",
-"type": "Fast",
+"name": "Lumishore: Light Control  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130944,
-"name": "Airmar: POST",
-"type": "Fast",
+"name": "Airmar: POST  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130945,
-"name": "Yamaha: Engine Data",
-"type": "Fast",
+"name": "Yamaha: Engine Data  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130946,
-"name": "Yamaha: Engine Data 2",
-"type": "Fast",
+"name": "Yamaha: Engine Data 2  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130947,
-"name": "Yamaha: Engine Data 3",
-"type": "Fast",
+"name": "Yamaha: Engine Data 3  (proprietary)",
 "fast": true
 },
 {
 "pgn": 130951,
-"name": "Yamaha: Engine Data 4",
-"type": "Fast",
+"name": "Yamaha: Engine Data 4  (proprietary)",
 "fast": true
 },
 {
 "pgn": 131008,
-"name": "Yamaha: Engine Data 5",
-"type": "Fast",
+"name": "Yamaha: Engine Data 5  (proprietary)",
 "fast": true
 },
 {
 "pgn": 131011,
-"name": "Yamaha: Engine Data 6",
-"type": "Fast",
+"name": "Yamaha: Engine Data 6  (proprietary)",
 "fast": true
 },
 {
 "pgn": 131012,
-"name": "Yamaha: Engine Data 7",
-"type": "Fast",
+"name": "Yamaha: Engine Data 7  (proprietary)",
 "fast": true
 }
 ]
