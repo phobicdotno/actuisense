@@ -1,8 +1,8 @@
 # AcTuiSense
 
 A cross-platform **terminal UI to configure Actisense NMEA 2000 gateways**
-(NGT-1, NGW-1) over a serial port or TCP — the open, scriptable alternative to the
-Windows-only **Actisense NMEA Reader → Hardware Configuration**.
+(NGT-1, NGW-1, NGX-1) over a serial port or TCP — the open, scriptable alternative
+to the Windows-only **Actisense NMEA Reader → Hardware Configuration**.
 
 Runs anywhere Python runs: **Linux, macOS, and Windows (PowerShell / Windows
 Terminal)**.
@@ -34,33 +34,18 @@ AcTuiSense does the same job from any terminal, plus a plain CLI for automation.
 ## Install
 
 ```bash
-pipx install actuisense         # recommended: isolated, gives the `actuisense` command
-pip install actuisense          # or into the current environment
-# from a checkout (no PyPI needed):
-pipx install .                  # or:  pip install -e .
+# install straight from GitHub (recommended), with the WAGO/can0 extra:
+pipx install "actuisense[wago] @ git+https://github.com/phobicdotno/actuisense.git"
+
+# core only (serial / TCP gateway config, no can0 monitor):
 pipx install "git+https://github.com/phobicdotno/actuisense.git"
+
+# from a local checkout:
+pipx install ".[wago]"          # or:  pip install -e ".[wago]"
 ```
 
-Requires Python ≥ 3.9, `pyserial`, and `textual`.
-
-## Publishing (maintainers)
-
-Releases publish to PyPI automatically via GitHub Actions using **Trusted
-Publishing** (OIDC) — no API token is stored. One-time setup:
-
-1. **Create a PyPI account** at <https://pypi.org/account/register/>.
-2. **Add a pending trusted publisher**: PyPI → *Your projects* isn't needed yet —
-   go to <https://pypi.org/manage/account/publishing/> and add a *pending*
-   publisher with:
-   - PyPI Project Name: `actuisense`
-   - Owner: `phobicdotno`  ·  Repository: `actuisense`
-   - Workflow name: `publish.yml`  ·  Environment: `pypi`
-3. **Create the `pypi` environment** in the repo: GitHub → Settings → Environments
-   → *New environment* → `pypi` (no secrets needed).
-4. **Cut a release**: bump `version` in `pyproject.toml`, then GitHub → Releases →
-   *Draft a new release* → tag `v0.3.0` → Publish. The `publish.yml` workflow
-   builds, `twine check`s, and uploads to PyPI. After that, `pipx install
-   actuisense` works for everyone.
+Use `pip install --user "<same spec>"` instead of `pipx` if you prefer.
+Requires Python ≥ 3.9, `pyserial`, and `textual` (plus `paramiko` for `[wago]`).
 
 ## Use
 

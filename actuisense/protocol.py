@@ -2,7 +2,7 @@
 Actisense BST (Binary Serial Transport) protocol.
 
 Pure, dependency-free encode/decode for the command protocol spoken by Actisense
-NMEA 2000 gateways (NGT-1, NGW-1, and the BST-compatible parts of newer units).
+NMEA 2000 gateways (NGT-1, NGW-1, NGX-1, and the BST-compatible parts of newer units).
 No I/O lives here -- this module only turns commands into bytes and bytes back
 into frames, so it is fully unit-testable without hardware.
 

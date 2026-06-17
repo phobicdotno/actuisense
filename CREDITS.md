@@ -20,9 +20,10 @@ No source code from them is copied into this repository.
   the operating-mode initialise behaviour and the `ACommsCommand_SetOperatingMode`
   reference.
 
-- **Actisense** — NGT-1 / NGW-1 are products of Active Research Ltd (Actisense).
-  This project is **not affiliated with or endorsed by Actisense**. "Actisense" and
-  "NGT-1" are used only to describe interoperability. The official configuration
+- **Actisense** — NGT-1 / NGW-1 / NGX-1 are products of Active Research Ltd
+  (Actisense). This project is **not affiliated with or endorsed by Actisense**.
+  "Actisense", "NGT-1", "NGW-1" and "NGX-1" are used only to describe
+  interoperability. The official configuration
   tool is the Windows **Actisense NMEA Reader**; AcTuiSense is an independent,
   cross-platform alternative.
 
