@@ -7,8 +7,13 @@ test plugin (we drive the coroutine with asyncio.run).
 
 import asyncio
 
-from actuisense.protocol import OperatingMode, PgnList
+from actuisense import protocol as proto
+from actuisense.device import Gateway, Transport
+from actuisense.protocol import OperatingMode, Op, PgnList
 from actuisense.tui import CHECK, UNCHECK, ActuiSenseApp
+
+RESP_MODE_RXALL = bytes.fromhex(
+    "10 02 a0 0e 11 01 0e 00 07 f9 03 00 00 00 00 00 02 00 2d 10 03".replace(" ", ""))
 
 
 class FakeGateway:
@@ -87,6 +92,46 @@ def test_filter_narrows_rows():
             table = app.query_one("#table")
             assert table.row_count >= 2
             assert set(app._row_pgn.values()) >= {127512, 127514}
+    _run(scenario)
+
+
+class LoggingFakeTransport(Transport):
+    """Replies to Get-Operating-Mode only; list queries time out (still logged)."""
+
+    def __init__(self):
+        self._buf = bytearray()
+
+    def read(self, n=4096):
+        out = bytes(self._buf[:n])
+        del self._buf[:n]
+        return out
+
+    def write(self, data):
+        for f in proto.decode_all(data):
+            if f.opcode == Op.OPERATING_MODE:
+                self._buf += RESP_MODE_RXALL
+
+    def close(self):
+        pass
+
+    @property
+    def name(self):
+        return "fakelog"
+
+
+def test_activity_log_records_exchanges():
+    async def scenario():
+        gw = Gateway(LoggingFakeTransport(), response_window=0.05)
+        app = ActuiSenseApp(gw)
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            # connect issued: Get Operating Mode (OK) + Get RX/TX lists (Timeout)
+            results = {e.result for e in gw.log_entries}
+            assert "OK" in results
+            assert any(e.action == "Get Operating Mode" for e in gw.log_entries)
+            logt = app.query_one("#logtable")
+            assert logt.row_count >= 1
     _run(scenario)
 
 

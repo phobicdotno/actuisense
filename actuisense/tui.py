@@ -1,10 +1,12 @@
 """
 Full-screen terminal UI (Textual) — the cross-platform equivalent of Actisense NMEA
-Reader's Hardware Configuration page.
+Reader's Hardware Configuration page, with two tabs:
 
-Layout: a header with device/operating-mode status, a filter box, a scrollable table
-of every PGN with RX and TX enable cells you can toggle, and an action bar
-(Activate / Commit→EEPROM / Reload / mode switch).
+  • PGN Filter   — a scrollable table of every PGN with toggleable RX/TX enable cells,
+                   plus operating-mode / activate / commit actions.
+  • Activity Log — a running log of every gateway exchange (line, time, action,
+                   result OK/Timeout/NAK, detail), like NMEA Reader's command log,
+                   fed by a periodic Get-Operating-Mode poll plus your own actions.
 
 Serial/TCP I/O blocks, so every gateway call runs in a Textual thread worker; the UI
 thread only renders. The app is constructed with a gateway object, which lets it be
@@ -15,17 +17,23 @@ from __future__ import annotations
 
 from typing import Optional, Set
 
+from rich.text import Text
 from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Horizontal, Vertical
-from textual.widgets import Button, DataTable, Footer, Header, Input, Label
+from textual.containers import Horizontal
+from textual.widgets import (Button, DataTable, Footer, Header, Input, Label,
+                             TabbedContent, TabPane)
 
 from .pgndb import PgnDb
 from .protocol import OperatingMode, PgnList
 
 CHECK = "[X]"
 UNCHECK = "[ ]"
+POLL_INTERVAL = 2.0          # seconds between Get-Operating-Mode heartbeats
+LOG_VIEW_MAX = 500           # max rows kept in the visible log table
+
+_RESULT_STYLE = {"OK": "green", "Timeout": "yellow", "NAK": "red bold", "Error": "red bold"}
 
 
 class ActuiSenseApp(App):
@@ -35,9 +43,8 @@ class ActuiSenseApp(App):
     #filterbar { height: 3; }
     #filter { width: 1fr; }
     DataTable { height: 1fr; }
-    #actions { height: 3; align: left middle; }
-    #actions Button { margin: 0 1 0 0; }
-    .dirty { color: $warning; }
+    #actions, #logactions { height: 3; align: left middle; }
+    #actions Button, #logactions Button { margin: 0 1 0 0; }
     """
 
     BINDINGS = [
@@ -48,6 +55,7 @@ class ActuiSenseApp(App):
         Binding("c", "commit", "Commit EEPROM"),
         Binding("f5", "reload", "Reload"),
         Binding("m", "cycle_mode", "Mode"),
+        Binding("p", "toggle_poll", "Pause poll"),
         Binding("ctrl+f", "focus_filter", "Filter"),
         Binding("q", "quit", "Quit"),
     ]
@@ -60,33 +68,51 @@ class ActuiSenseApp(App):
         self.tx_enabled: Set[int] = set()
         self.mode: Optional[OperatingMode] = None
         self.dirty = False
-        self._row_pgn = {}  # row key -> pgn
+        self.poll_paused = False
+        self._row_pgn = {}
+        self._log_rows = 0
 
     # -- layout -------------------------------------------------------------
 
     def compose(self) -> ComposeResult:
-        yield Header(show_clock=False)
+        yield Header(show_clock=True)
         yield Label("connecting…", id="status")
-        with Horizontal(id="filterbar"):
-            yield Input(placeholder="filter PGNs (number or name)…", id="filter")
-        table = DataTable(id="table", cursor_type="row", zebra_stripes=True)
-        table.add_column("PGN", key="pgn", width=8)
-        table.add_column("Name", key="name")
-        table.add_column("RX", key="rx", width=5)
-        table.add_column("TX", key="tx", width=5)
-        yield table
-        with Horizontal(id="actions"):
-            yield Button("Activate (a)", id="activate", variant="primary")
-            yield Button("Commit → EEPROM (c)", id="commit", variant="warning")
-            yield Button("Reload (F5)", id="reload")
-            yield Button("Mode (m)", id="mode")
+        with TabbedContent(initial="filtertab"):
+            with TabPane("PGN Filter", id="filtertab"):
+                with Horizontal(id="filterbar"):
+                    yield Input(placeholder="filter PGNs (number or name)…", id="filter")
+                table = DataTable(id="table", cursor_type="row", zebra_stripes=True)
+                table.add_column("PGN", key="pgn", width=8)
+                table.add_column("Name", key="name")
+                table.add_column("RX", key="rx", width=5)
+                table.add_column("TX", key="tx", width=5)
+                yield table
+                with Horizontal(id="actions"):
+                    yield Button("Activate (a)", id="activate", variant="primary")
+                    yield Button("Commit → EEPROM (c)", id="commit", variant="warning")
+                    yield Button("Reload (F5)", id="reload")
+                    yield Button("Mode (m)", id="mode")
+            with TabPane("Activity Log", id="logtab"):
+                logt = DataTable(id="logtable", cursor_type="row", zebra_stripes=True)
+                logt.add_column("Li…", key="seq", width=6)
+                logt.add_column("Time", key="time", width=10)
+                logt.add_column("Action", key="action", width=34)
+                logt.add_column("Result", key="result", width=10)
+                logt.add_column("Detail", key="detail")
+                yield logt
+                with Horizontal(id="logactions"):
+                    yield Button("Pause polling (p)", id="poll")
+                    yield Button("Clear log", id="clearlog")
         yield Footer()
 
     def on_mount(self) -> None:
+        if hasattr(self.gw, "set_log_callback"):
+            self.gw.set_log_callback(self._on_gw_log)
         self.populate_table("")
         self.connect()
+        self.set_interval(POLL_INTERVAL, self.poll)
 
-    # -- data ---------------------------------------------------------------
+    # -- PGN table ----------------------------------------------------------
 
     def populate_table(self, flt: str) -> None:
         table = self.query_one("#table", DataTable)
@@ -108,14 +134,41 @@ class ActuiSenseApp(App):
             table.update_cell(key, "rx", CHECK if pgn in self.rx_enabled else UNCHECK)
             table.update_cell(key, "tx", CHECK if pgn in self.tx_enabled else UNCHECK)
 
+    # -- status & log -------------------------------------------------------
+
     def set_status(self, text: str) -> None:
         self.query_one("#status", Label).update(text)
 
     def render_status(self) -> None:
         mode = self.mode.name if self.mode else "?"
-        dirt = "  ●UNSAVED" if self.dirty else ""
+        flags = ("  ●UNSAVED" if self.dirty else "") + ("  ‖poll paused" if self.poll_paused else "")
         self.set_status("%s   mode=%s   RX:%d  TX:%d%s"
-                        % (self.gw.name, mode, len(self.rx_enabled), len(self.tx_enabled), dirt))
+                        % (self.gw.name, mode, len(self.rx_enabled), len(self.tx_enabled), flags))
+
+    def _on_gw_log(self, entry) -> None:
+        # called from a worker thread -> marshal to the UI thread
+        self.call_from_thread(self._append_log, entry)
+
+    def _append_log(self, entry) -> None:
+        try:
+            table = self.query_one("#logtable", DataTable)
+        except Exception:
+            return
+        style = _RESULT_STYLE.get(entry.result, "")
+        table.add_row(str(entry.seq), entry.time, entry.action,
+                      Text(entry.result, style=style), entry.detail)
+        self._log_rows += 1
+        if self._log_rows > LOG_VIEW_MAX:
+            try:
+                table.remove_row(table.get_row_at(0))
+            except Exception:
+                pass
+            else:
+                self._log_rows -= 1
+        try:
+            table.scroll_end(animate=False)
+        except Exception:
+            pass
 
     # -- workers (threaded gateway I/O) ------------------------------------
 
@@ -132,6 +185,18 @@ class ActuiSenseApp(App):
         self.mode, self.rx_enabled, self.tx_enabled = mode, rx, tx
         self.dirty = False
         self.call_from_thread(self.refresh_marks)
+        self.call_from_thread(self.render_status)
+
+    @work(group="poll", exclusive=True, thread=True)
+    def poll(self) -> None:
+        if self.poll_paused:
+            return
+        try:
+            m = self.gw.get_operating_mode()
+        except Exception:
+            return
+        if m is not None:
+            self.mode = m
         self.call_from_thread(self.render_status)
 
     @work(thread=True)
@@ -160,7 +225,7 @@ class ActuiSenseApp(App):
         except Exception as e:  # noqa: BLE001
             self.call_from_thread(self.notify, "commit failed: %s" % e, severity="error")
 
-    @work(exclusive=True, thread=True)
+    @work(thread=True)
     def do_set_mode(self, mode: OperatingMode) -> None:
         try:
             self.gw.set_operating_mode(mode)
@@ -217,13 +282,27 @@ class ActuiSenseApp(App):
     def action_focus_filter(self) -> None:
         self.query_one("#filter", Input).focus()
 
+    def action_toggle_poll(self) -> None:
+        self.poll_paused = not self.poll_paused
+        try:
+            self.query_one("#poll", Button).label = "Resume polling (p)" if self.poll_paused else "Pause polling (p)"
+        except Exception:
+            pass
+        self.render_status()
+
+    def action_clear_log(self) -> None:
+        self.query_one("#logtable", DataTable).clear()
+        self._log_rows = 0
+
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id == "filter":
             self.populate_table(event.value)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         {"activate": self.action_activate, "commit": self.action_commit,
-         "reload": self.action_reload, "mode": self.action_cycle_mode}.get(event.button.id, lambda: None)()
+         "reload": self.action_reload, "mode": self.action_cycle_mode,
+         "poll": self.action_toggle_poll, "clearlog": self.action_clear_log,
+         }.get(event.button.id, lambda: None)()
 
 
 def run_tui(port: str, baud: int = 115200) -> int:

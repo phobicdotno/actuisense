@@ -7,7 +7,13 @@ Windows-only **Actisense NMEA Reader → Hardware Configuration**.
 Runs anywhere Python runs: **Linux, macOS, and Windows (PowerShell / Windows
 Terminal)**.
 
-![AcTuiSense screenshot](docs/screenshot.svg)
+![AcTuiSense PGN filter tab](docs/screenshot.svg)
+
+**Activity Log tab** — every gateway exchange (line, time, action, result, detail),
+fed by a live Get-Operating-Mode poll plus your own actions, just like NMEA Reader's
+command log:
+
+![AcTuiSense activity log tab](docs/screenshot-log.svg)
 
 > Validated end-to-end against a real **Actisense NGT-1** — reading the operating
 > mode and Rx/Tx enable lists, toggling per-PGN filters, activating, and committing
@@ -69,6 +75,7 @@ actuisense list tx     -p /dev/ttyUSB0
 | Commit to EEPROM (persist) | `--commit` | `c` | `0x01` |
 | Read current Rx/Tx lists & mode | `info` / `list` | on connect | parsed |
 | Raw diagnostic queries (hw/product/total-time) | `raw` | — | read-only hex; vendor-binary fields are **not** guessed |
+| Activity log of every exchange (+ live poll) | — | Activity Log tab | line/time/action/result/detail; `p` pauses polling |
 
 Deliberately **not** wired up yet: serial/CAN baud change, NMEA 0183 P-code, and
 duplicate-filtering — these can disrupt the link, and their payloads are not

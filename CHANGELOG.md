@@ -3,6 +3,19 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.2.0] - 2026-06-17
+
+### Added
+- **Activity Log tab** (like NMEA Reader's command log): every gateway exchange is
+  recorded with line number, time, action, result (OK / Timeout / NAK / Error) and
+  detail (e.g. `500ms` on timeout), colour-coded.
+- A periodic **Get-Operating-Mode poll** drives the log and a live link indicator;
+  pause/resume with `p`, clear the log from the tab.
+- Device layer now logs every `command()` exchange (with an action label) via an
+  `on_log` callback + an in-memory `log_entries` buffer, and serialises transport
+  access with a lock so the poll and user actions never interleave on the wire.
+- Second screenshot (Activity Log) in the README.
+
 ## [0.1.0] - 2026-06-16
 
 First working release. Validated end-to-end against a real Actisense NGT-1.

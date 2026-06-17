@@ -14,8 +14,10 @@ ACMD response opcode it wants.
 from __future__ import annotations
 
 import socket
+import threading
 import time
-from typing import Iterable, List, Optional, Sequence
+from dataclasses import dataclass
+from typing import Callable, Iterable, List, Optional, Sequence
 
 import serial  # pyserial
 
@@ -25,6 +27,16 @@ from .protocol import Frame, FrameDecoder, OperatingMode, Op, PgnList
 # 12-byte response header before payload-specific data:
 #   opcode(1) sequence(1) status(2) device-NAME(8)
 _HEADER_LEN = 12
+
+
+@dataclass(frozen=True)
+class LogEntry:
+    """One command/response exchange, for the activity log (à la NMEA Reader)."""
+    seq: int
+    time: str       # HH:MM:SS
+    action: str     # human label, e.g. "Get Operating Mode"
+    result: str     # "OK" | "Timeout" | "NAK" | "Error"
+    detail: str = ""  # e.g. "500ms" on timeout, or a short note
 
 
 class GatewayError(Exception):
@@ -114,10 +126,31 @@ def open_transport(spec: str, baud: int = 115200) -> Transport:
 # ---- gateway ---------------------------------------------------------------
 
 class Gateway:
-    def __init__(self, transport: Transport, response_window: float = 1.5):
+    def __init__(self, transport: Transport, response_window: float = 1.5,
+                 on_log: Optional[Callable[[LogEntry], None]] = None, log_cap: int = 2000):
         self.t = transport
         self.window = response_window
         self._dec = FrameDecoder()
+        self._lock = threading.Lock()   # serialise transport access across threads
+        self._on_log = on_log
+        self._seq = 0
+        self._log_cap = log_cap
+        self.log_entries: List[LogEntry] = []
+
+    def set_log_callback(self, cb: Optional[Callable[[LogEntry], None]]) -> None:
+        self._on_log = cb
+
+    def _log(self, action: str, result: str, detail: str = "") -> None:
+        self._seq += 1
+        entry = LogEntry(self._seq, time.strftime("%H:%M:%S"), action, result, detail)
+        self.log_entries.append(entry)
+        if len(self.log_entries) > self._log_cap:
+            del self.log_entries[0]
+        if self._on_log is not None:
+            try:
+                self._on_log(entry)
+            except Exception:
+                pass
 
     # context manager
     def __enter__(self) -> "Gateway":
@@ -151,17 +184,30 @@ class Gateway:
         return frames
 
     def command(self, frame_bytes: bytes, want_op: Optional[int] = None,
-                window: Optional[float] = None, raise_on_nak: bool = True) -> List[Frame]:
-        """Send a frame, collect responses, optionally filter to `want_op`."""
-        self._flush_input()
-        self.t.write(frame_bytes)
-        frames = self._collect(window if window is not None else self.window)
-        for f in frames:
-            if raise_on_nak and f.is_nak:
-                raise NakError(f.payload[2] if len(f.payload) > 2 else None)
+                window: Optional[float] = None, raise_on_nak: bool = True,
+                action: str = "command") -> List[Frame]:
+        """Send a frame, collect responses, optionally filter to `want_op`, and log the exchange."""
+        win = window if window is not None else self.window
+        try:
+            with self._lock:
+                self._flush_input()
+                self.t.write(frame_bytes)
+                frames = self._collect(win)
+        except Exception as e:  # transport error
+            self._log(action, "Error", str(e)[:40])
+            raise
+        nak = next((f for f in frames if f.is_nak), None)
         if want_op is None:
-            return frames
-        return [f for f in frames if f.command == proto.ACMD_RECV and f.opcode == want_op]
+            matched = frames
+            result = "NAK" if nak else "OK"
+        else:
+            matched = [f for f in frames if f.command == proto.ACMD_RECV and f.opcode == want_op]
+            result = "NAK" if nak else ("OK" if matched else "Timeout")
+        detail = "%dms" % int(win * 1000) if result == "Timeout" else ("negative ack" if result == "NAK" else "")
+        self._log(action, result, detail)
+        if nak and raise_on_nak:
+            raise NakError(nak.payload[2] if len(nak.payload) > 2 else None)
+        return matched if want_op is not None else frames
 
     @staticmethod
     def _data(frame: Frame) -> bytes:
@@ -171,7 +217,8 @@ class Gateway:
     # -- high level ---------------------------------------------------------
 
     def get_operating_mode(self) -> Optional[OperatingMode]:
-        frames = self.command(proto.cmd_get_operating_mode(), want_op=Op.OPERATING_MODE)
+        frames = self.command(proto.cmd_get_operating_mode(), want_op=Op.OPERATING_MODE,
+                              action="Get Operating Mode")
         for f in frames:
             d = self._data(f)
             if len(d) >= 1:
@@ -182,16 +229,18 @@ class Gateway:
         return None
 
     def set_operating_mode(self, mode: OperatingMode) -> None:
-        self.command(proto.cmd_set_operating_mode(mode), want_op=None)
+        self.command(proto.cmd_set_operating_mode(mode), want_op=None,
+                     action="Set Operating Mode -> %s" % mode.name)
 
     def set_pgn(self, which: PgnList, pgn: int, enable: bool) -> None:
-        self.command(proto.cmd_set_pgn(which, pgn, enable), want_op=None)
+        self.command(proto.cmd_set_pgn(which, pgn, enable), want_op=None,
+                     action="%s %s PGN %d" % ("Enable" if enable else "Disable", which.name, pgn))
 
     def activate(self) -> None:
-        self.command(proto.cmd_activate_pgn_lists(), want_op=None)
+        self.command(proto.cmd_activate_pgn_lists(), want_op=None, action="Activate Enable Lists")
 
     def commit_eeprom(self) -> None:
-        self.command(proto.cmd_commit_eeprom(), want_op=None)
+        self.command(proto.cmd_commit_eeprom(), want_op=None, action="Commit to EEPROM")
 
     def enable_pgns(self, which: PgnList, pgns: Iterable[int], enable: bool = True,
                     activate: bool = True, commit: bool = False) -> None:
@@ -206,7 +255,8 @@ class Gateway:
     def get_pgn_list(self, which: PgnList) -> List[int]:
         """Return the PGNs currently enabled in the Rx or Tx list (from response part 1)."""
         want = Op.TX_PGN_ENABLE_LIST if which == PgnList.TX else Op.RX_PGN_ENABLE_LIST
-        frames = self.command(proto.cmd_get_pgn_list(which), want_op=want, window=2.0)
+        frames = self.command(proto.cmd_get_pgn_list(which), want_op=want, window=2.0,
+                              action="Get %s PGN List" % which.name)
         for f in frames:
             try:
                 seq, pgns = proto.parse_pgn_list_part1(f)
@@ -218,5 +268,5 @@ class Gateway:
 
     def raw_query(self, op: Op) -> bytes:
         """Send a no-arg query and return the first matching response's data bytes."""
-        frames = self.command(proto.cmd_simple(op), want_op=int(op))
+        frames = self.command(proto.cmd_simple(op), want_op=int(op), action="Query %s" % op.name)
         return self._data(frames[0]) if frames else b""
