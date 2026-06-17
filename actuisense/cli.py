@@ -85,12 +85,26 @@ def _print_list(db: PgnDb, title: str, pgns: List[int]) -> None:
         print("  %-7d %s" % (n, db.name(n)))
 
 
+def _scan_progress(done: int, total: int) -> None:
+    """Stderr progress shown only when a gateway needs the slow per-PGN scan (NGX-1)."""
+    if done < total:
+        print("  scanning PGNs %d/%d ..." % (done, total), end="\r", file=sys.stderr, flush=True)
+    else:
+        print(" " * 40, end="\r", file=sys.stderr, flush=True)  # clear the line
+
+
 def cmd_info(gw: Gateway, db: PgnDb) -> int:
     print("Gateway: %s" % gw.name)
     mode = gw.get_operating_mode()
     print("Operating mode: %s" % (mode.name if mode else "unknown"))
-    _print_list(db, "Rx enabled", gw.get_pgn_list(PgnList.RX))
-    _print_list(db, "Tx enabled", gw.get_pgn_list(PgnList.TX))
+    cands = [i.pgn for i in db.all()]
+    if mode == OperatingMode.RX_ALL:
+        print("Rx enabled: (RX_ALL -- the Rx list is not applied; all PGNs are received)")
+    else:
+        _print_list(db, "Rx enabled",
+                    gw.get_pgn_list(PgnList.RX, scan_candidates=cands, scan_progress=_scan_progress))
+    _print_list(db, "Tx enabled",
+                gw.get_pgn_list(PgnList.TX, scan_candidates=cands, scan_progress=_scan_progress))
     return 0
 
 
@@ -115,7 +129,9 @@ def cmd_enable(gw: Gateway, db: PgnDb, which: PgnList, pgns: List[int],
 
 
 def cmd_list(gw: Gateway, db: PgnDb, which: PgnList) -> int:
-    _print_list(db, "%s enabled" % which.name, gw.get_pgn_list(which))
+    cands = [i.pgn for i in db.all()]
+    _print_list(db, "%s enabled" % which.name,
+                gw.get_pgn_list(which, scan_candidates=cands, scan_progress=_scan_progress))
     return 0
 
 

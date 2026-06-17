@@ -28,7 +28,7 @@ class FakeGateway:
     def get_operating_mode(self):
         return self.mode
 
-    def get_pgn_list(self, which):
+    def get_pgn_list(self, which, scan_candidates=None, scan_progress=None):
         return sorted(self.tx if which == PgnList.TX else self.rx)
 
     def set_pgn(self, which, pgn, enable):

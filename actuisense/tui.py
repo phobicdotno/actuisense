@@ -344,8 +344,13 @@ class ActuiSenseApp(App):
         self.call_from_thread(self.set_status, "reading gateway…")
         try:
             mode = self.gw.get_operating_mode()
-            rx = set(self.gw.get_pgn_list(PgnList.RX))
-            tx = set(self.gw.get_pgn_list(PgnList.TX))
+            cands = [i.pgn for i in self.db.all()]
+
+            def _prog(done: int, total: int) -> None:
+                self.call_from_thread(self.set_status, "scanning PGNs %d/%d…" % (done, total))
+
+            tx = set(self.gw.get_pgn_list(PgnList.TX, scan_candidates=cands, scan_progress=_prog))
+            rx = set(self.gw.get_pgn_list(PgnList.RX, scan_candidates=cands, scan_progress=_prog))
         except Exception as e:  # noqa: BLE001
             self.call_from_thread(self.set_status, "ERROR: %s" % e)
             return

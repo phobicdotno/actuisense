@@ -3,6 +3,19 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.3.1] - 2026-06-17
+
+### Fixed
+- **NGX-1 Rx/Tx list readback.** `info` / `list` (and the TUI) reported 0 enabled
+  PGNs against the Actisense NGX-1. The NGX ignores the bulk list query (`0x49`/`0x48`)
+  that the NGT-1 answers, and replies to the Format-2 query (`0x4F`/`0x4E`) with an
+  indexed parameter structure we do not decode. Added a reliable fallback: when the
+  bulk query returns nothing, scan the PGN database with the per-PGN query
+  (`0x47`/`0x46`), which the NGX does answer, pipelined in batches so the device
+  reply latency and its `0xF2` status-frame flood are paid once per batch (a full
+  Tx scan is ~15-20 s). `info` skips the moot Rx scan when the gateway is in RX_ALL.
+  Verified against a real NGX-1: the 22-PGN Tx list now shows correctly.
+
 ## [0.3.0] - 2026-06-17
 
 ### Added

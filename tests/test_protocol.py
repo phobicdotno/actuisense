@@ -90,3 +90,18 @@ def test_two_frames_in_one_stream():
     stream = p.cmd_activate_pgn_lists() + p.cmd_commit_eeprom()
     frames = p.decode_all(stream)
     assert [f.opcode for f in frames] == [Op.ACTIVATE_PGN_ENABLE_LISTS, Op.COMMIT_TO_EEPROM]
+
+
+def test_parse_per_pgn_query_reply_ngx():
+    # REAL NGX-1 per-PGN enable-state replies (opcode 0x47, Tx). The NGX answers the
+    # per-PGN query even though it ignores the bulk list query (0x49) -- this is the
+    # readback path AcTuiSense scans on. 127512 is enabled; 130306 is not.
+    enabled = hx("10 02 a0 1a 47 01 3b 00 2e e7 04 00 00 00 00 00 18 f2 01 00 "
+                 "01 ff ff 00 00 00 00 00 00 06 9a 10 03")
+    disabled = hx("10 02 a0 1a 47 01 3b 00 2e e7 04 00 00 00 00 00 02 fd 01 00 "
+                  "00 64 00 00 00 00 00 00 00 02 44 10 03")
+    assert p.parse_pgn_query(p.decode_all(enabled)[0]) == (127512, True)
+    assert p.parse_pgn_query(p.decode_all(disabled)[0]) == (130306, False)
+    # a non-query frame (operating-mode reply) is not a per-PGN reply
+    mode = hx("10 02 a0 0e 11 01 3b 00 2e e7 04 00 00 00 00 00 02 00 ea 10 03")
+    assert p.parse_pgn_query(p.decode_all(mode)[0]) is None

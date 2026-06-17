@@ -252,8 +252,75 @@ class Gateway:
         if commit:
             self.commit_eeprom()
 
-    def get_pgn_list(self, which: PgnList) -> List[int]:
-        """Return the PGNs currently enabled in the Rx or Tx list (from response part 1)."""
+    def query_pgn(self, which: PgnList, pgn: int, window: float = 0.5) -> Optional[bool]:
+        """Query ONE PGN's enable state with the per-PGN command (0x47 Tx / 0x46 Rx),
+        early-exiting on the matching reply. Returns True/False, or None if no reply.
+
+        This is the readback path for gateways (the NGX-1) that ignore the bulk list
+        query (0x49/0x48) but still answer a per-PGN query.
+        """
+        op = int(Op.TX_PGN_ENABLE if which == PgnList.TX else Op.RX_PGN_ENABLE)
+        with self._lock:
+            self._flush_input()
+            self.t.write(proto.cmd_get_pgn(which, pgn))
+            end = time.monotonic() + window
+            while time.monotonic() < end:
+                chunk = self.t.read(4096)
+                if not chunk:
+                    continue
+                for f in self._dec.feed(chunk):
+                    if f.command == proto.ACMD_RECV and f.opcode == op:
+                        parsed = proto.parse_pgn_query(f)
+                        if parsed is not None and parsed[0] == pgn:
+                            return parsed[1]
+        return None
+
+    def get_pgn_list_by_scan(self, which: PgnList, candidates: Sequence[int],
+                             progress: Optional[Callable[[int, int], None]] = None,
+                             batch: int = 24, batch_window: float = 1.0) -> List[int]:
+        """Read the enabled list by querying candidate PGNs -- for gateways (the NGX-1)
+        that ignore the bulk list query. PIPELINED: send a batch of per-PGN queries,
+        then collect their replies together, so the device's reply latency and its
+        0xF2 status-frame flood are paid once per batch, not once per PGN.
+        `progress(done, total)` is called per batch, if given.
+        """
+        op_reply = int(Op.TX_PGN_ENABLE if which == PgnList.TX else Op.RX_PGN_ENABLE)
+        results: dict = {}
+        total = len(candidates)
+        with self._lock:
+            self._flush_input(0.1)
+            for start in range(0, total, batch):
+                chunk_pgns = candidates[start:start + batch]
+                for pgn in chunk_pgns:
+                    self.t.write(proto.cmd_get_pgn(which, pgn))
+                need = set(chunk_pgns)
+                end = time.monotonic() + batch_window
+                while need and time.monotonic() < end:
+                    data = self.t.read(4096)
+                    if not data:
+                        continue
+                    for f in self._dec.feed(data):
+                        if f.command == proto.ACMD_RECV and f.opcode == op_reply:
+                            parsed = proto.parse_pgn_query(f)
+                            if parsed is not None and parsed[0] in need:
+                                results[parsed[0]] = parsed[1]
+                                need.discard(parsed[0])
+                if progress is not None:
+                    progress(min(start + batch, total), total)
+        enabled = [p for p in candidates if results.get(p)]
+        self._log("Scan %s PGN List" % which.name, "OK",
+                  "%d of %d enabled (%d unanswered)" % (len(enabled), total, total - len(results)))
+        return enabled
+
+    def get_pgn_list(self, which: PgnList, scan_candidates: Optional[Sequence[int]] = None,
+                     scan_progress: Optional[Callable[[int, int], None]] = None) -> List[int]:
+        """Return the PGNs enabled in the Rx or Tx list.
+
+        Tries the fast bulk query (0x49/0x48, answered by the NGT-1/NGW-1). If that
+        yields nothing and `scan_candidates` is given, falls back to a per-PGN scan
+        (the NGX-1, which ignores the bulk query and reports a Format-2 structure we
+        don't decode).
+        """
         want = Op.TX_PGN_ENABLE_LIST if which == PgnList.TX else Op.RX_PGN_ENABLE_LIST
         frames = self.command(proto.cmd_get_pgn_list(which), want_op=want, window=2.0,
                               action="Get %s PGN List" % which.name)
@@ -262,8 +329,10 @@ class Gateway:
                 seq, pgns = proto.parse_pgn_list_part1(f)
             except ValueError:
                 continue
-            if seq == 1:
+            if seq == 1 and pgns:
                 return pgns
+        if scan_candidates:
+            return self.get_pgn_list_by_scan(which, scan_candidates, progress=scan_progress)
         return []
 
     def raw_query(self, op: Op) -> bytes:

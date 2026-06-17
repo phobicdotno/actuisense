@@ -281,3 +281,22 @@ def parse_pgn_list_part1(frame: Frame) -> Tuple[int, List[int]]:
         pgn = p[off] | (p[off + 1] << 8) | (p[off + 2] << 16)
         pgns.append(pgn)
     return seq, pgns
+
+
+def parse_pgn_query(frame: Frame) -> Optional[Tuple[int, bool]]:
+    """
+    Parse a per-PGN enable-state reply (opcode TX_PGN_ENABLE 0x47 / RX_PGN_ENABLE
+    0x46) into (pgn, enabled). After the 12-byte header (opcode, seq, 2 status, 8
+    NAME) the payload is the PGN as little-endian 24-bit (+1 pad) then a 1-byte
+    enable flag. This is how the NGX-1 reports a PGN's state -- it answers the
+    per-PGN query even though it ignores the bulk list query (0x49/0x48).
+
+    Returns None if `frame` is not such a reply.
+    """
+    if frame.command != ACMD_RECV or frame.opcode not in (Op.TX_PGN_ENABLE, Op.RX_PGN_ENABLE):
+        return None
+    p = frame.payload
+    if len(p) < 17:  # 12 header + pgn(4) + enable(1)
+        return None
+    pgn = p[12] | (p[13] << 8) | (p[14] << 16)
+    return pgn, bool(p[16])
