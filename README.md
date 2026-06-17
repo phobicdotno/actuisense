@@ -34,12 +34,33 @@ AcTuiSense does the same job from any terminal, plus a plain CLI for automation.
 ## Install
 
 ```bash
-pip install actuisense          # once published
-# or from a checkout:
-pip install -e .
+pipx install actuisense         # recommended: isolated, gives the `actuisense` command
+pip install actuisense          # or into the current environment
+# from a checkout (no PyPI needed):
+pipx install .                  # or:  pip install -e .
+pipx install "git+https://github.com/phobicdotno/actuisense.git"
 ```
 
 Requires Python ≥ 3.9, `pyserial`, and `textual`.
+
+## Publishing (maintainers)
+
+Releases publish to PyPI automatically via GitHub Actions using **Trusted
+Publishing** (OIDC) — no API token is stored. One-time setup:
+
+1. **Create a PyPI account** at <https://pypi.org/account/register/>.
+2. **Add a pending trusted publisher**: PyPI → *Your projects* isn't needed yet —
+   go to <https://pypi.org/manage/account/publishing/> and add a *pending*
+   publisher with:
+   - PyPI Project Name: `actuisense`
+   - Owner: `phobicdotno`  ·  Repository: `actuisense`
+   - Workflow name: `publish.yml`  ·  Environment: `pypi`
+3. **Create the `pypi` environment** in the repo: GitHub → Settings → Environments
+   → *New environment* → `pypi` (no secrets needed).
+4. **Cut a release**: bump `version` in `pyproject.toml`, then GitHub → Releases →
+   *Draft a new release* → tag `v0.3.0` → Publish. The `publish.yml` workflow
+   builds, `twine check`s, and uploads to PyPI. After that, `pipx install
+   actuisense` works for everyone.
 
 ## Use
 
