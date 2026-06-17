@@ -69,6 +69,7 @@ class ActuiSenseApp(App):
         self.mode: Optional[OperatingMode] = None
         self.dirty = False
         self.poll_paused = False
+        self._polling = False
         self._row_pgn = {}
         self._log_rows = 0
 
@@ -187,17 +188,22 @@ class ActuiSenseApp(App):
         self.call_from_thread(self.refresh_marks)
         self.call_from_thread(self.render_status)
 
-    @work(group="poll", exclusive=True, thread=True)
+    @work(group="poll", thread=True)
     def poll(self) -> None:
-        if self.poll_paused:
+        # re-entrancy guard instead of exclusive-cancel: skip if a poll is in flight,
+        # so we never cancel a worker mid serial-read.
+        if self.poll_paused or self._polling:
             return
+        self._polling = True
         try:
             m = self.gw.get_operating_mode()
+            if m is not None:
+                self.mode = m
+            self.call_from_thread(self.render_status)
         except Exception:
-            return
-        if m is not None:
-            self.mode = m
-        self.call_from_thread(self.render_status)
+            pass
+        finally:
+            self._polling = False
 
     @work(thread=True)
     def push_pgn(self, which: PgnList, pgn: int, enable: bool) -> None:
