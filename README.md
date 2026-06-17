@@ -46,6 +46,7 @@ Requires Python ≥ 3.9, `pyserial`, and `textual`.
 ### TUI
 
 ```bash
+actuisense tui                           # start disconnected, then pick a connection
 actuisense tui -p /dev/ttyUSB0          # Linux/macOS serial
 actuisense tui -p COM5                   # Windows
 actuisense tui -p tcp://192.168.1.50:60002   # networked gateway (e.g. W2K-1)
@@ -53,6 +54,24 @@ actuisense tui -p tcp://192.168.1.50:60002   # networked gateway (e.g. W2K-1)
 
 Arrow keys / mouse to move, **space** toggles the RX or TX box on the focused PGN,
 type in the filter box to narrow the list, then **Commit → EEPROM** to persist.
+
+**Connection dialog** (`Ctrl+O`): choose the source without restarting — a serial
+port (auto-detected ports are listed) + baud, a `tcp://` gateway, or a **WAGO PLC**.
+
+### Bus Monitor — listen on a WAGO PLC's can0
+
+A WAGO PFC200 on the same NMEA 2000 backbone exposes the bus as SocketCAN (`can0`).
+Log in with a username/password over SSH and the **Bus Monitor** tab streams live
+traffic straight off the wire — the ground truth for what the gateway is actually
+transmitting. Pick *WAGO PLC (can0)* in the Connection dialog, or from the CLI:
+
+```bash
+actuisense monitor --host 10.0.0.202 -u root -P wago          # decoded can0 dump
+actuisense monitor --host 10.0.0.202 -u root -P wago --iface can1 -n 50
+```
+
+Read-only: it never writes to the bus or the gateway. Needs the `wago` extra
+(`pip install actuisense[wago]`, which adds paramiko).
 
 ### CLI (scriptable, no UI)
 
@@ -76,6 +95,8 @@ actuisense list tx     -p /dev/ttyUSB0
 | Read current Rx/Tx lists & mode | `info` / `list` | on connect | parsed |
 | Raw diagnostic queries (hw/product/total-time) | `raw` | — | read-only hex; vendor-binary fields are **not** guessed |
 | Activity log of every exchange (+ live poll) | — | Activity Log tab | line/time/action/result/detail; `p` pauses polling |
+| Choose connection (serial/baud, TCP, WAGO) | `-p` / `monitor` | `Ctrl+O` | serial port auto-detect; start disconnected |
+| Live can0 bus monitor (via WAGO PLC SSH) | `monitor` | Bus Monitor tab | read-only `candump`; per-PGN/source aggregation |
 
 Deliberately **not** wired up yet: serial/CAN baud change, NMEA 0183 P-code, and
 duplicate-filtering — these can disrupt the link, and their payloads are not

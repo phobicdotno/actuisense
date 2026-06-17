@@ -24,10 +24,17 @@ _WHICH = {"rx": PgnList.RX, "tx": PgnList.TX}
 _MODE = {"filter": OperatingMode.FILTER, "rxall": OperatingMode.RX_ALL}
 
 
-def _add_conn(sp: argparse.ArgumentParser) -> None:
-    sp.add_argument("-p", "--port", required=True,
+def _add_conn(sp: argparse.ArgumentParser, required: bool = True) -> None:
+    sp.add_argument("-p", "--port", required=required, default=None,
                     help="serial device (/dev/ttyUSB0, COM5) or tcp://host[:port]")
     sp.add_argument("-b", "--baud", type=int, default=115200, help="serial baud (default 115200)")
+
+
+def _add_wago(sp: argparse.ArgumentParser) -> None:
+    sp.add_argument("--host", required=True, help="WAGO PLC host/IP (e.g. 10.0.0.202)")
+    sp.add_argument("-u", "--user", required=True, help="SSH username (e.g. root)")
+    sp.add_argument("-P", "--password", required=True, help="SSH password")
+    sp.add_argument("--iface", default="can0", help="CAN interface to listen on (default can0)")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -60,7 +67,14 @@ def build_parser() -> argparse.ArgumentParser:
     _add_conn(p_raw)
 
     p_tui = sub.add_parser("tui", help="launch the full-screen terminal UI")
-    _add_conn(p_tui)
+    _add_conn(p_tui, required=False)  # no -p: start disconnected, pick via Connection dialog
+
+    p_mon = sub.add_parser(
+        "monitor",
+        help="listen on a WAGO PLC's can0 over SSH and print decoded N2K frames")
+    _add_wago(p_mon)
+    p_mon.add_argument("-n", "--count", type=int, default=0,
+                       help="stop after N frames (0 = run until Ctrl+C)")
 
     return ap
 
@@ -120,12 +134,44 @@ def cmd_raw(gw: Gateway) -> int:
     return 0
 
 
+def cmd_monitor(db: PgnDb, host: str, user: str, password: str, iface: str, count: int) -> int:
+    """SSH into a WAGO PLC, run candump on `iface`, and print decoded N2K frames.
+
+    Read-only: this never writes to the bus or the gateway. Stops after `count`
+    frames (if > 0) or on Ctrl+C.
+    """
+    from .wago import CandumpSource, WagoError
+    try:
+        source = CandumpSource.over_ssh(host=host, username=user, password=password, iface=iface)
+    except WagoError as e:
+        print("error: %s" % e, file=sys.stderr)
+        return 2
+    print("Listening on %s  (Ctrl+C to stop)" % source.name)
+    print("%-16s %-7s %-3s %-3s  %s" % ("time", "pgn", "src", "dst", "data"))
+    n = 0
+    try:
+        for f in source.frames():
+            print("%-16.6f %-7d %-3d %-3d  %s  %s"
+                  % (f.timestamp, f.pgn, f.source, f.dest, f.data.hex(" "), db.name(f.pgn)))
+            n += 1
+            if count and n >= count:
+                break
+    except KeyboardInterrupt:  # pragma: no cover
+        pass
+    finally:
+        source.close()
+    return 0
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     args = build_parser().parse_args(argv)
 
     if args.cmd == "tui":
         from .tui import run_tui
         return run_tui(args.port, args.baud)
+
+    if args.cmd == "monitor":
+        return cmd_monitor(PgnDb(), args.host, args.user, args.password, args.iface, args.count)
 
     db = PgnDb()
     try:

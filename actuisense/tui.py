@@ -1,16 +1,22 @@
 """
 Full-screen terminal UI (Textual) — the cross-platform equivalent of Actisense NMEA
-Reader's Hardware Configuration page, with two tabs:
+Reader's Hardware Configuration page, with three tabs:
 
   • PGN Filter   — a scrollable table of every PGN with toggleable RX/TX enable cells,
                    plus operating-mode / activate / commit actions.
   • Activity Log — a running log of every gateway exchange (line, time, action,
                    result OK/Timeout/NAK, detail), like NMEA Reader's command log,
                    fed by a periodic Get-Operating-Mode poll plus your own actions.
+  • Bus Monitor  — live raw NMEA 2000 traffic read straight off a WAGO PLC's can0
+                   interface over SSH (candump), aggregated per PGN/source.
 
-Serial/TCP I/O blocks, so every gateway call runs in a Textual thread worker; the UI
-thread only renders. The app is constructed with a gateway object, which lets it be
-driven headlessly in tests with a fake gateway.
+A Connection dialog (Ctrl+O) picks the source: a serial port + baud, a TCP gateway,
+or a WAGO PLC (username/password → can0). The app can start disconnected and prompt
+for a connection, so no port has to be known up front.
+
+Serial/TCP/SSH I/O blocks, so every gateway call and the bus reader run in Textual
+thread workers; the UI thread only renders. The app is constructed with an optional
+gateway object, which lets it be driven headlessly in tests with a fake gateway.
 """
 
 from __future__ import annotations
@@ -21,9 +27,10 @@ from rich.text import Text
 from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Horizontal
+from textual.containers import Horizontal, Vertical
+from textual.screen import ModalScreen
 from textual.widgets import (Button, DataTable, Footer, Header, Input, Label,
-                             TabbedContent, TabPane)
+                             Select, Static, TabbedContent, TabPane)
 
 from .pgndb import PgnDb
 from .protocol import OperatingMode, PgnList
@@ -32,8 +39,137 @@ CHECK = "[X]"
 UNCHECK = "[ ]"
 POLL_INTERVAL = 2.0          # seconds between Get-Operating-Mode heartbeats
 LOG_VIEW_MAX = 500           # max rows kept in the visible log table
+BUS_VIEW_MAX = 400           # max distinct PGN/source rows in the bus monitor
 
 _RESULT_STYLE = {"OK": "green", "Timeout": "yellow", "NAK": "red bold", "Error": "red bold"}
+
+# Serial speeds offered in the Connection dialog (NGT-1 is 115200; others vary).
+BAUD_RATES = (4800, 9600, 19200, 38400, 57600, 115200, 230400)
+
+
+def list_serial_ports():
+    """Return ``[(device, description)]`` for every serial port, or ``[]``.
+
+    Best-effort: pyserial is a hard dependency, but a bare/headless host may have
+    no ports (or the import may fail), so failures degrade to an empty list.
+    """
+    try:
+        from serial.tools import list_ports
+    except Exception:  # pragma: no cover — pyserial missing
+        return []
+    return [(p.device, p.description or "") for p in list_ports.comports()]
+
+
+class ConnectionScreen(ModalScreen):
+    """Pick a connection: a serial port + baud, a TCP gateway, or a WAGO PLC (can0).
+
+    Dismisses with a ``spec`` dict ``{"kind": "serial"|"tcp"|"wago", ...}`` on
+    Connect, or ``None`` on Cancel.
+    """
+
+    CSS = """
+    ConnectionScreen { align: center middle; }
+    #conn-dialog {
+        width: 76; height: auto; padding: 1 2;
+        border: round $accent; background: $surface;
+    }
+    #conn-title { text-style: bold; margin-bottom: 1; }
+    .conn-label { color: $accent; margin-top: 1; }
+    #conn-buttons { height: auto; margin-top: 1; }
+    #conn-dialog Button { margin: 0 1 0 0; }
+    #conn-result { margin-top: 1; height: auto; min-height: 1; }
+    Select, Input { margin-bottom: 0; }
+    """
+
+    BINDINGS = [Binding("escape", "cancel", "Cancel")]
+
+    def __init__(self, current_target: Optional[str] = None,
+                 current_baud: Optional[int] = None) -> None:
+        super().__init__()
+        self._current_target = current_target
+        self._current_baud = current_baud if current_baud in BAUD_RATES else 115200
+
+    def compose(self) -> ComposeResult:
+        ports = list_serial_ports()
+        detected = [("%s  %s" % (dev, desc)).rstrip() for dev, desc in ports]
+        detected_opts = [(label, dev) for label, (dev, _d) in zip(detected, ports)]
+        with Vertical(id="conn-dialog"):
+            yield Static("Connection", id="conn-title")
+
+            yield Static("Type", classes="conn-label")
+            yield Select(
+                [("Serial port", "serial"), ("TCP gateway", "tcp"),
+                 ("WAGO PLC (can0)", "wago")],
+                value="serial", allow_blank=False, id="conn-type")
+
+            yield Static("Detected serial ports", classes="conn-label")
+            yield Select(detected_opts, prompt="(none — type a port/host below)",
+                         id="conn-detected")
+
+            yield Static("Port / host", classes="conn-label")
+            yield Input(
+                value=self._current_target or "",
+                placeholder="COM5  •  /dev/ttyUSB0  •  tcp://host:60002  •  10.0.0.202",
+                id="conn-target")
+
+            yield Static("Speed (baud) — serial only", classes="conn-label")
+            yield Select([(str(b), b) for b in BAUD_RATES],
+                         value=self._current_baud, allow_blank=False, id="conn-baud")
+
+            yield Static("WAGO PLC login (can0 only)", classes="conn-label")
+            with Horizontal():
+                yield Input(placeholder="username (e.g. root)", id="conn-user")
+                yield Input(placeholder="password", password=True, id="conn-pass")
+                yield Input(value="can0", placeholder="iface", id="conn-iface")
+
+            with Horizontal(id="conn-buttons"):
+                yield Button("Connect", id="conn-connect", variant="success")
+                yield Button("Cancel", id="conn-cancel")
+            yield Static("", id="conn-result", markup=False)
+
+    def _set_result(self, text: str) -> None:
+        self.query_one("#conn-result", Static).update(text)
+
+    def on_select_changed(self, event: Select.Changed) -> None:
+        # Picking a detected port fills the target field.
+        if event.select.id == "conn-detected" and event.value is not Select.BLANK:
+            self.query_one("#conn-target", Input).value = str(event.value)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "conn-cancel":
+            self.action_cancel()
+        elif event.button.id == "conn-connect":
+            self._connect()
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+    def _value(self, wid: str) -> str:
+        return self.query_one(wid, Input).value.strip()
+
+    def _connect(self) -> None:
+        kind = self.query_one("#conn-type", Select).value
+        target = self._value("#conn-target")
+        if kind == "wago":
+            host = target
+            user = self._value("#conn-user")
+            password = self.query_one("#conn-pass", Input).value  # keep spaces
+            iface = self._value("#conn-iface") or "can0"
+            if not host or not user:
+                self._set_result("WAGO needs a host and a username.")
+                return
+            self.dismiss({"kind": "wago", "host": host, "username": user,
+                          "password": password, "iface": iface})
+            return
+        if not target:
+            self._set_result("Enter a serial port or host.")
+            return
+        if kind == "tcp":
+            spec = target if target.startswith("tcp://") else "tcp://" + target
+            self.dismiss({"kind": "tcp", "target": spec})
+            return
+        baud = int(self.query_one("#conn-baud", Select).value)
+        self.dismiss({"kind": "serial", "target": target, "baud": baud})
 
 
 class ActuiSenseApp(App):
@@ -56,11 +192,12 @@ class ActuiSenseApp(App):
         Binding("f5", "reload", "Reload"),
         Binding("m", "cycle_mode", "Mode"),
         Binding("p", "toggle_poll", "Pause poll"),
+        Binding("ctrl+o", "connection", "Connection"),
         Binding("ctrl+f", "focus_filter", "Filter"),
         Binding("q", "quit", "Quit"),
     ]
 
-    def __init__(self, gateway, db: Optional[PgnDb] = None):
+    def __init__(self, gateway=None, db: Optional[PgnDb] = None):
         super().__init__()
         self.gw = gateway
         self.db = db or PgnDb()
@@ -72,6 +209,11 @@ class ActuiSenseApp(App):
         self._polling = False
         self._row_pgn = {}
         self._log_rows = 0
+        # Bus monitor (WAGO/can0) state.
+        self._bus_source = None
+        self._bus_rows = {}   # (pgn, src) -> running count
+        self.last_target: Optional[str] = None
+        self.last_baud: Optional[int] = None
 
     # -- layout -------------------------------------------------------------
 
@@ -93,6 +235,7 @@ class ActuiSenseApp(App):
                     yield Button("Commit → EEPROM (c)", id="commit", variant="warning")
                     yield Button("Reload (F5)", id="reload")
                     yield Button("Mode (m)", id="mode")
+                    yield Button("Connection (^O)", id="connect")
             with TabPane("Activity Log", id="logtab"):
                 logt = DataTable(id="logtable", cursor_type="row", zebra_stripes=True)
                 logt.add_column("Li…", key="seq", width=6)
@@ -104,14 +247,30 @@ class ActuiSenseApp(App):
                 with Horizontal(id="logactions"):
                     yield Button("Pause polling (p)", id="poll")
                     yield Button("Clear log", id="clearlog")
+            with TabPane("Bus Monitor", id="bustab"):
+                bust = DataTable(id="bustable", cursor_type="row", zebra_stripes=True)
+                bust.add_column("Time", key="time", width=12)
+                bust.add_column("PGN", key="pgn", width=8)
+                bust.add_column("Name", key="name", width=34)
+                bust.add_column("Src", key="src", width=5)
+                bust.add_column("Cnt", key="cnt", width=7)
+                bust.add_column("Data (hex)", key="data")
+                yield bust
         yield Footer()
 
     def on_mount(self) -> None:
-        if hasattr(self.gw, "set_log_callback"):
+        if self.gw is not None and hasattr(self.gw, "set_log_callback"):
             self.gw.set_log_callback(self._on_gw_log)
         self.populate_table("")
-        self.connect()
         self.set_interval(POLL_INTERVAL, self.poll)
+        if self.gw is not None:
+            self.connect()
+        else:
+            self.set_status("not connected — press Ctrl+O to choose a connection")
+            self.action_connection()
+
+    def on_unmount(self) -> None:
+        self._stop_bus()
 
     # -- PGN table ----------------------------------------------------------
 
@@ -141,6 +300,11 @@ class ActuiSenseApp(App):
         self.query_one("#status", Label).update(text)
 
     def render_status(self) -> None:
+        if self.gw is None:
+            bus = self._bus_source.name if self._bus_source is not None else None
+            self.set_status("bus monitor: %s" % bus if bus else
+                            "not connected — press Ctrl+O")
+            return
         mode = self.mode.name if self.mode else "?"
         flags = ("  ●UNSAVED" if self.dirty else "") + ("  ‖poll paused" if self.poll_paused else "")
         self.set_status("%s   mode=%s   RX:%d  TX:%d%s"
@@ -175,6 +339,8 @@ class ActuiSenseApp(App):
 
     @work(exclusive=True, thread=True)
     def connect(self) -> None:
+        if self.gw is None:
+            return
         self.call_from_thread(self.set_status, "reading gateway…")
         try:
             mode = self.gw.get_operating_mode()
@@ -192,7 +358,7 @@ class ActuiSenseApp(App):
     def poll(self) -> None:
         # re-entrancy guard instead of exclusive-cancel: skip if a poll is in flight,
         # so we never cancel a worker mid serial-read.
-        if self.poll_paused or self._polling:
+        if self.gw is None or self.poll_paused or self._polling:
             return
         self._polling = True
         try:
@@ -242,6 +408,124 @@ class ActuiSenseApp(App):
         except Exception as e:  # noqa: BLE001
             self.call_from_thread(self.notify, "mode change failed: %s" % e, severity="error")
 
+    # -- bus monitor (WAGO / can0) -----------------------------------------
+
+    @work(group="bus", thread=True)
+    def run_bus_monitor(self) -> None:
+        source = self._bus_source
+        if source is None:
+            return
+        try:
+            for frame in source.frames():
+                self.call_from_thread(self._bus_push, frame)
+        except Exception as e:  # noqa: BLE001 — surface SSH/stream errors, then stop
+            self.call_from_thread(self.notify, "bus monitor stopped: %s" % e, severity="error")
+            self.call_from_thread(self.render_status)
+
+    def _bus_push(self, frame) -> None:
+        try:
+            table = self.query_one("#bustable", DataTable)
+        except Exception:
+            return
+        key = "%d:%d" % (frame.pgn, frame.source)
+        ts = "%.3f" % (frame.timestamp % 100000)
+        name = self.db.name(frame.pgn)
+        hexdata = frame.data.hex(" ")
+        if key in self._bus_rows:
+            cnt = self._bus_rows[key] + 1
+            self._bus_rows[key] = cnt
+            table.update_cell(key, "time", ts)
+            table.update_cell(key, "cnt", str(cnt))
+            table.update_cell(key, "data", hexdata)
+        else:
+            if len(self._bus_rows) >= BUS_VIEW_MAX:
+                return  # cap distinct rows; ignore further new PGN/source pairs
+            self._bus_rows[key] = 1
+            table.add_row(ts, str(frame.pgn), name, str(frame.source), "1", hexdata, key=key)
+
+    def _stop_bus(self) -> None:
+        if self._bus_source is not None:
+            try:
+                self._bus_source.close()
+            except Exception:
+                pass
+            self._bus_source = None
+
+    # -- connection ---------------------------------------------------------
+
+    def action_connection(self) -> None:
+        if isinstance(self.screen, ConnectionScreen):
+            return
+        self.push_screen(
+            ConnectionScreen(current_target=self.last_target, current_baud=self.last_baud),
+            self._on_connection_chosen,
+        )
+
+    def _on_connection_chosen(self, spec) -> None:
+        if not spec:
+            return
+        kind = spec.get("kind")
+        if kind == "wago":
+            self.start_bus(spec["host"], spec["username"], spec["password"],
+                           spec.get("iface", "can0"))
+        elif kind in ("serial", "tcp"):
+            self.start_gateway(spec)
+
+    def start_gateway(self, spec) -> None:
+        """Open a serial/TCP gateway from a connection spec and read its state."""
+        from .device import Gateway, open_transport
+        target = spec["target"]
+        baud = int(spec.get("baud", 115200))
+        try:
+            transport = open_transport(target, baud=baud)
+        except Exception as e:  # noqa: BLE001
+            self.notify("cannot open %s: %s" % (target, e), severity="error")
+            self.set_status("connection failed: %s" % target)
+            return
+        # Replace any previous gateway.
+        if self.gw is not None:
+            try:
+                self.gw.close()
+            except Exception:
+                pass
+        self.gw = Gateway(transport)
+        if hasattr(self.gw, "set_log_callback"):
+            self.gw.set_log_callback(self._on_gw_log)
+        self.last_target = target
+        self.last_baud = baud if spec["kind"] == "serial" else self.last_baud
+        self.notify("Connected: %s" % self.gw.name)
+        self.connect()
+
+    def start_bus(self, host: str, username: str, password: str, iface: str = "can0") -> None:
+        """Start streaming can0 from a WAGO PLC over SSH into the Bus Monitor tab."""
+        from .wago import CandumpSource, WagoError
+        self._stop_bus()
+        self._bus_rows.clear()
+        try:
+            self.query_one("#bustable", DataTable).clear()
+        except Exception:
+            pass
+        try:
+            source = CandumpSource.over_ssh(host=host, username=username,
+                                            password=password, iface=iface)
+        except WagoError as e:
+            self.notify(str(e), severity="error")
+            self.set_status("WAGO connection failed")
+            return
+        except Exception as e:  # noqa: BLE001
+            self.notify("WAGO connection failed: %s" % e, severity="error")
+            self.set_status("WAGO connection failed")
+            return
+        self._bus_source = source
+        self.last_target = host
+        try:
+            self.query_one(TabbedContent).active = "bustab"
+        except Exception:
+            pass
+        self.notify("Listening on %s" % source.name)
+        self.render_status()
+        self.run_bus_monitor()
+
     # -- interactions -------------------------------------------------------
 
     def _highlighted_pgn(self) -> Optional[int]:
@@ -255,6 +539,9 @@ class ActuiSenseApp(App):
         return self._row_pgn.get(key)
 
     def _toggle(self, which: PgnList) -> None:
+        if self.gw is None:
+            self.notify("no gateway connected (bus monitor only)", severity="warning")
+            return
         pgn = self._highlighted_pgn()
         if pgn is None:
             return
@@ -273,15 +560,27 @@ class ActuiSenseApp(App):
         self._toggle(PgnList.TX)
 
     def action_activate(self) -> None:
+        if self.gw is None:
+            self.notify("no gateway connected", severity="warning")
+            return
         self.do_activate()
 
     def action_commit(self) -> None:
+        if self.gw is None:
+            self.notify("no gateway connected", severity="warning")
+            return
         self.do_commit()
 
     def action_reload(self) -> None:
+        if self.gw is None:
+            self.action_connection()
+            return
         self.connect()
 
     def action_cycle_mode(self) -> None:
+        if self.gw is None:
+            self.notify("no gateway connected", severity="warning")
+            return
         nxt = OperatingMode.FILTER if self.mode == OperatingMode.RX_ALL else OperatingMode.RX_ALL
         self.do_set_mode(nxt)
 
@@ -307,20 +606,34 @@ class ActuiSenseApp(App):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         {"activate": self.action_activate, "commit": self.action_commit,
          "reload": self.action_reload, "mode": self.action_cycle_mode,
+         "connect": self.action_connection,
          "poll": self.action_toggle_poll, "clearlog": self.action_clear_log,
          }.get(event.button.id, lambda: None)()
 
 
-def run_tui(port: str, baud: int = 115200) -> int:
+def run_tui(port: Optional[str] = None, baud: int = 115200) -> int:
+    """Launch the TUI.
+
+    With ``port`` given, opens that serial/TCP gateway up front (old behaviour).
+    Without it, the app starts disconnected and opens the Connection dialog so the
+    user can pick a serial port + baud, a TCP gateway, or a WAGO PLC (can0).
+    """
     from .device import Gateway, open_transport
+    gw = None
+    if port:
+        try:
+            transport = open_transport(port, baud=baud)
+        except Exception as e:  # noqa: BLE001
+            print("error: cannot open %s: %s" % (port, e))
+            return 2
+        gw = Gateway(transport)
+    app = ActuiSenseApp(gw)
+    app.last_target = port
+    app.last_baud = baud
     try:
-        transport = open_transport(port, baud=baud)
-    except Exception as e:  # noqa: BLE001
-        print("error: cannot open %s: %s" % (port, e))
-        return 2
-    gw = Gateway(transport)
-    try:
-        ActuiSenseApp(gw).run()
+        app.run()
     finally:
-        gw.close()
+        if gw is not None:
+            gw.close()
+        app._stop_bus()
     return 0

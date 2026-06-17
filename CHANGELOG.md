@@ -3,6 +3,27 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.3.0] - 2026-06-17
+
+### Added
+- **Connection dialog** (`Ctrl+O`, or the *Connection* button): pick a serial port
+  (auto-detected ports are listed) + baud rate, a `tcp://` gateway, or a WAGO PLC.
+  The TUI can now start **disconnected** (`actuisense tui` with no `-p`) and prompt
+  for a connection instead of requiring the port up front.
+- **WAGO PLC / can0 listener**: log in to a WAGO PFC200 (or any SocketCAN Linux box)
+  with a username + password over SSH and stream `candump <iface>` straight off the
+  bus. Raw 29-bit CAN ids are decoded to NMEA 2000 priority / PGN / source / dest.
+- **Bus Monitor tab**: live N2K traffic from can0, aggregated one row per PGN/source
+  with a hit count and the latest data bytes — the ground truth for what the gateway
+  is actually putting on the wire.
+- **`actuisense monitor`** CLI subcommand: scriptable, read-only can0 dump
+  (`--host`/`--user`/`--password`/`--iface`, optional `-n COUNT`).
+- `actuisense.can` (CAN-id decode + `candump -L` parsing) and `actuisense.wago`
+  (SSH candump source), both fully unit-tested with golden vectors from real PFC200
+  captures and a fake line stream — no hardware needed.
+- Optional `wago` extra: `pip install actuisense[wago]` pulls in paramiko (imported
+  lazily, so the core install stays serial-only).
+
 ## [0.2.0] - 2026-06-17
 
 ### Added
