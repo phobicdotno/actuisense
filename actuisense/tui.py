@@ -251,6 +251,7 @@ class ActuiSenseApp(App):
         self._polling = False
         self._row_pgn = {}
         self._log_rows = 0
+        self._sort_state = {}  # table id -> (column_key, reverse) for header-click sort
         # Bus monitor (WAGO/can0) state.
         self._bus_source = None
         self._bus_rows = {}   # (pgn, src) -> running count
@@ -335,6 +336,30 @@ class ActuiSenseApp(App):
         for key, pgn in self._row_pgn.items():
             table.update_cell(key, "rx", CHECK if pgn in self.rx_enabled else UNCHECK)
             table.update_cell(key, "tx", CHECK if pgn in self.tx_enabled else UNCHECK)
+
+    # -- column sorting -----------------------------------------------------
+
+    @staticmethod
+    def _sort_key(value):
+        """Sort numerically when the whole cell parses as a number, else by text.
+
+        Cells hold plain strings or Rich ``Text`` (e.g. coloured log results); ``str``
+        flattens both. Columns are homogeneous (PGN/Src/Cnt/Time always numeric, names
+        always text), so a column never mixes the two key types in one sort."""
+        s = str(value).strip()
+        try:
+            return (0, float(s))
+        except ValueError:
+            return (1, s.lower())
+
+    def on_data_table_header_selected(self, event: DataTable.HeaderSelected) -> None:
+        """Click a column header to sort by it; click the same header to flip asc/desc."""
+        table = event.data_table
+        col = event.column_key
+        prev_col, prev_rev = self._sort_state.get(table.id, (None, False))
+        reverse = (not prev_rev) if col == prev_col else False
+        self._sort_state[table.id] = (col, reverse)
+        table.sort(col, key=self._sort_key, reverse=reverse)
 
     # -- status & log -------------------------------------------------------
 

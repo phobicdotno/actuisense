@@ -3,6 +3,14 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.3.9] - 2026-06-18
+
+### Added
+- **Click any column header to sort** that table, click the same header again to flip
+  ascending/descending. Works on all three tables (PGN Filter, Bus Monitor, Activity
+  Log). Numeric columns (PGN, Src, Cnt, Time, line number) sort numerically; text
+  columns sort case-insensitively. Sort direction is tracked per table.
+
 ## [0.3.8] - 2026-06-18
 
 ### Changed

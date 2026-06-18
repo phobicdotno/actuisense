@@ -146,3 +146,29 @@ def test_commit_calls_gateway():
             await pilot.pause()
             assert "commit" in gw.calls
     _run(scenario)
+
+
+def test_header_click_sorts_column_asc_then_desc():
+    from rich.text import Text
+    from textual.widgets import DataTable
+    from textual.widgets._data_table import ColumnKey
+
+    async def scenario():
+        gw = FakeGateway()
+        app = ActuiSenseApp(gw)
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            table = app.query_one("#table", DataTable)
+            ev = DataTable.HeaderSelected(table, ColumnKey("pgn"), 0, Text("PGN"))
+            # first click -> ascending numeric
+            app.on_data_table_header_selected(ev)
+            await pilot.pause()
+            asc = [int(table.get_row_at(i)[0]) for i in range(table.row_count)]
+            assert asc == sorted(asc)
+            # second click on the same header -> descending
+            app.on_data_table_header_selected(ev)
+            await pilot.pause()
+            desc = [int(table.get_row_at(i)[0]) for i in range(table.row_count)]
+            assert desc == sorted(desc, reverse=True)
+    _run(scenario)
