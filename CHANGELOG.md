@@ -3,6 +3,17 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.3.12] - 2026-06-18
+
+### Changed
+- **Tabs now follow the connection.** Connecting to a WAGO PLC (can0 bus monitor) shows
+  only the Bus Monitor tab; connecting to an Actisense gateway shows the PGN Filter and
+  Activity Log and hides the Bus Monitor. This removes the confusion where, in WAGO
+  bus-monitor mode (no Actisense gateway), the PGN Filter showed the whole PGN catalogue
+  with empty RX/TX boxes and the Activity Log stayed empty -- neither has a data source
+  without a gateway. The two connection modes are now mutually exclusive: starting one
+  closes the other.
+
 ## [0.3.11] - 2026-06-18
 
 ### Added

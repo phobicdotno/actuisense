@@ -365,6 +365,7 @@ class ActuiSenseApp(App):
             self.gw.set_log_callback(self._on_gw_log)
         self.populate_table("")
         self.set_interval(POLL_INTERVAL, self.poll)
+        self._update_tabs()
         if self.gw is not None:
             self.connect()
         else:
@@ -391,6 +392,34 @@ class ActuiSenseApp(App):
         return True if self._active_tab() in tabs else None
 
     def on_tabbed_content_tab_activated(self, event) -> None:
+        self.refresh_bindings()
+
+    def _update_tabs(self) -> None:
+        """Show only the tabs that apply to the current connection. WAGO bus-monitor
+        mode (no Actisense gateway) hides the gateway-only PGN Filter and Activity Log
+        tabs; a gateway connection hides the WAGO-only Bus Monitor; with nothing
+        connected, all tabs are shown so a connection can be chosen."""
+        try:
+            tc = self.query_one(TabbedContent)
+        except Exception:
+            return
+        bus = self._bus_source is not None
+        gw = self.gw is not None
+        if bus and not gw:           # WAGO bus monitor only
+            tc.show_tab("bustab")
+            tc.hide_tab("filtertab")
+            tc.hide_tab("logtab")
+            tc.active = "bustab"
+        elif gw:                     # Actisense gateway
+            tc.show_tab("filtertab")
+            tc.show_tab("logtab")
+            tc.hide_tab("bustab")
+            if tc.active == "bustab":
+                tc.active = "filtertab"
+        else:                        # nothing connected yet
+            tc.show_tab("filtertab")
+            tc.show_tab("bustab")
+            tc.show_tab("logtab")
         self.refresh_bindings()
 
     # -- PGN table ----------------------------------------------------------
@@ -663,6 +692,7 @@ class ActuiSenseApp(App):
         from .device import Gateway, open_transport
         target = spec["target"]
         baud = int(spec.get("baud", 115200))
+        self._stop_bus()  # leaving WAGO bus-monitor mode, if we were in it
         try:
             transport = open_transport(target, baud=baud)
         except Exception as e:  # noqa: BLE001
@@ -681,6 +711,7 @@ class ActuiSenseApp(App):
         self.last_target = target
         self.last_baud = baud if spec["kind"] == "serial" else self.last_baud
         self.notify("Connected: %s" % self.gw.name)
+        self._update_tabs()
         self.connect()
 
     def start_bus(self, host: str, username: str, password: str, iface: str = "can0") -> None:
@@ -705,12 +736,17 @@ class ActuiSenseApp(App):
             self.notify("WAGO connection failed: %s" % e, severity="error")
             self.set_status("WAGO connection failed")
             return
+        # Entering bus-monitor mode: drop any Actisense gateway so the PGN Filter /
+        # Activity Log tabs (which only mean anything with a gateway) are removed.
+        if self.gw is not None:
+            try:
+                self.gw.close()
+            except Exception:
+                pass
+            self.gw = None
         self._bus_source = source
         self.last_target = host
-        try:
-            self.query_one(TabbedContent).active = "bustab"
-        except Exception:
-            pass
+        self._update_tabs()
         self.notify("Listening on %s" % source.name)
         self.render_status()
         self.run_bus_monitor()

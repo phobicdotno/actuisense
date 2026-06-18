@@ -266,3 +266,38 @@ def test_footer_shortcuts_are_tab_aware():
             await pilot.pause()
             assert vis("toggle_poll") is True and vis("toggle_rx") is None
     _run(scenario)
+
+
+def test_tabs_follow_connection_mode():
+    from textual.widgets import TabbedContent
+
+    class _FakeBusSource:
+        name = "can0@10.0.0.202"
+
+        def frames(self):
+            return iter([])
+
+        def close(self):
+            pass
+
+    async def scenario():
+        app = ActuiSenseApp(FakeGateway())
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            tc = app.query_one(TabbedContent)
+            hidden = lambda tid: not tc.get_tab(tid).display
+            # gateway connected -> Bus Monitor hidden, gateway tabs shown
+            assert hidden("bustab")
+            assert not hidden("filtertab") and not hidden("logtab")
+            assert tc.active == "filtertab"
+            # switch to WAGO bus-monitor mode -> only Bus Monitor remains
+            app._stop_bus()
+            app.gw = None
+            app._bus_source = _FakeBusSource()
+            app._update_tabs()
+            await pilot.pause()
+            assert hidden("filtertab") and hidden("logtab")
+            assert not hidden("bustab")
+            assert tc.active == "bustab"
+    _run(scenario)
