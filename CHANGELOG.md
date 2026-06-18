@@ -3,6 +3,13 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.3.5] - 2026-06-18
+
+### Changed
+- Connection dialog: the Port/host **placeholder hint** now matches the selected
+  Type (serial -> `/dev/ttyUSB0`, tcp -> `tcp://host:60002`, wago -> `10.0.0.202`)
+  instead of always listing all three.
+
 ## [0.3.4] - 2026-06-18
 
 ### Fixed

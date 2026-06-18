@@ -150,13 +150,18 @@ class ConnectionScreen(ModalScreen):
         self._apply_type(str(self.query_one("#conn-type", Select).value))
 
     def _apply_type(self, kind: str) -> None:
-        """Show only the fields relevant to the selected connection Type."""
+        """Show only the fields relevant to the selected connection Type, and match
+        the Port/host label + placeholder to it."""
         self.query_one("#conn-serial-group").display = (kind == "serial")
         self.query_one("#conn-baud-group").display = (kind == "serial")
         self.query_one("#conn-wago-group").display = (kind == "wago")
         label = {"serial": "Serial port", "tcp": "Host (tcp://host:port or host)",
                  "wago": "PLC host / IP"}.get(kind, "Port / host")
         self.query_one("#conn-target-label", Static).update(label)
+        placeholder = {"serial": "/dev/ttyUSB0   •   COM5",
+                       "tcp": "tcp://host:60002   •   host:port",
+                       "wago": "10.0.0.202   (PLC IP)"}.get(kind, "/dev/ttyUSB0")
+        self.query_one("#conn-target", Input).placeholder = placeholder
 
     def _set_result(self, text: str) -> None:
         self.query_one("#conn-result", Static).update(text)
