@@ -278,6 +278,15 @@ class ActuiSenseApp(App):
                     yield Button("Reload (F5)", id="reload")
                     yield Button("Mode (m)", id="mode")
                     yield Button("Connection (^O)", id="connect")
+            with TabPane("Bus Monitor", id="bustab"):
+                bust = DataTable(id="bustable", cursor_type="row", zebra_stripes=True)
+                bust.add_column("Time", key="time", width=12)
+                bust.add_column("PGN", key="pgn", width=8)
+                bust.add_column("Name", key="name", width=34)
+                bust.add_column("Src", key="src", width=5)
+                bust.add_column("Cnt", key="cnt", width=7)
+                bust.add_column("Data (hex)", key="data")
+                yield bust
             with TabPane("Activity Log", id="logtab"):
                 logt = DataTable(id="logtable", cursor_type="row", zebra_stripes=True)
                 logt.add_column("Li…", key="seq", width=6)
@@ -289,15 +298,6 @@ class ActuiSenseApp(App):
                 with Horizontal(id="logactions"):
                     yield Button("Pause polling (p)", id="poll")
                     yield Button("Clear log", id="clearlog")
-            with TabPane("Bus Monitor", id="bustab"):
-                bust = DataTable(id="bustable", cursor_type="row", zebra_stripes=True)
-                bust.add_column("Time", key="time", width=12)
-                bust.add_column("PGN", key="pgn", width=8)
-                bust.add_column("Name", key="name", width=34)
-                bust.add_column("Src", key="src", width=5)
-                bust.add_column("Cnt", key="cnt", width=7)
-                bust.add_column("Data (hex)", key="data")
-                yield bust
         yield Footer()
 
     def on_mount(self) -> None:

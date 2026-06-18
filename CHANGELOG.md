@@ -3,6 +3,12 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.3.7] - 2026-06-18
+
+### Changed
+- Tab order is now **PGN Filter | Bus Monitor | Activity Log** (Bus Monitor and
+  Activity Log swapped).
+
 ## [0.3.6] - 2026-06-18
 
 ### Added
