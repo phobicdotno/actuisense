@@ -3,6 +3,21 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.4.2] - 2026-06-18
+
+### Added
+- **The Bus Monitor now works on a serial/TCP Actisense gateway**, not just WAGO. The
+  gateway forwards every received NMEA 2000 message on its `0x93` channel; a background
+  reader decodes those (`protocol.parse_n2k_recv`, byte layout per canboat
+  `actisense-serial.c`) and feeds the same Bus Monitor (PGN/source/instance split,
+  filter, Inst column). The reader shares the transport lock with the heartbeat poll and
+  user commands, reading in short bursts so it never blocks a config write.
+
+### Changed
+- A gateway connection now shows **all three tabs** again (PGN Filter, Bus Monitor,
+  Activity Log) — the Bus Monitor is no longer hidden on serial/TCP, since it is now fed
+  by the gateway's own N2K stream. WAGO mode still shows only the Bus Monitor.
+
 ## [0.4.1] - 2026-06-18
 
 ### Added

@@ -214,6 +214,20 @@ class Gateway:
         """Strip the 12-byte response header, returning the payload-specific data."""
         return frame.payload[_HEADER_LEN:] if len(frame.payload) > _HEADER_LEN else b""
 
+    def read_n2k(self, window: float = 0.2) -> List["proto.N2kMessage"]:
+        """Read a short burst of the gateway's live N2K traffic (0x93 frames).
+
+        The Actisense gateway forwards every received N2K message on the 0x93 channel.
+        This shares the transport lock with command()/the heartbeat poll, so it reads in
+        a brief window and returns whatever N2K messages arrived; command responses and
+        other frames are ignored. Not logged (the rate is far too high for the log)."""
+        try:
+            with self._lock:
+                frames = self._collect(window)
+        except Exception:
+            return []
+        return [m for m in (proto.parse_n2k_recv(f) for f in frames) if m is not None]
+
     # -- high level ---------------------------------------------------------
 
     def get_operating_mode(self) -> Optional[OperatingMode]:

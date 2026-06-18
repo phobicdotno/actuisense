@@ -21,6 +21,7 @@ gateway object, which lets it be driven headlessly in tests with a fake gateway.
 
 from __future__ import annotations
 
+import time
 from typing import Optional, Set
 
 from rich.text import Text
@@ -351,8 +352,9 @@ class ActuiSenseApp(App):
         self._row_pgn = {}
         self._log_rows = 0
         self._sort_state = {}  # table id -> (column_key, reverse) for header-click sort
-        # Bus monitor (WAGO/can0) state.
+        # Bus monitor state (fed by WAGO can0 OR the gateway's 0x93 N2K stream).
         self._bus_source = None
+        self._gw_bus_on = False  # gateway N2K reader running
         self._bus_rows = {}   # key "pgn:src" -> running count
         self._bus_data = {}   # key -> (ts, pgn, name, src, cnt, hexdata) for repopulation
         self._bus_shown = set()  # keys currently displayed (after the bus filter)
@@ -416,12 +418,14 @@ class ActuiSenseApp(App):
         self._update_tabs()
         if self.gw is not None:
             self.connect()
+            self._start_gw_bus()
         else:
             self.set_status("not connected — press Ctrl+O to choose a connection")
             self.action_connection()
 
     def on_unmount(self) -> None:
         self._stop_bus()
+        self._stop_gw_bus()
 
     # -- tab-aware shortcuts ------------------------------------------------
 
@@ -460,12 +464,10 @@ class ActuiSenseApp(App):
             tc.hide_tab("filtertab")
             tc.hide_tab("logtab")
             tc.active = "bustab"
-        elif gw:                     # Actisense gateway
-            tc.show_tab("filtertab")
+        elif gw:                     # Actisense gateway: all tabs; Bus Monitor is fed
+            tc.show_tab("filtertab")  # by the gateway's own 0x93 N2K stream
             tc.show_tab("logtab")
-            tc.hide_tab("bustab")
-            if tc.active == "bustab":
-                tc.active = "filtertab"
+            tc.show_tab("bustab")
         else:                        # nothing connected yet
             tc.show_tab("filtertab")
             tc.show_tab("bustab")
@@ -651,6 +653,40 @@ class ActuiSenseApp(App):
             self.call_from_thread(self.notify, "bus monitor stopped: %s" % e, severity="error")
             self.call_from_thread(self.render_status)
 
+    def _start_gw_bus(self) -> None:
+        """Begin streaming the connected gateway's live N2K traffic into the Bus Monitor."""
+        if self.gw is None or self._gw_bus_on:
+            return
+        self._bus_rows.clear()
+        self._bus_data.clear()
+        self._bus_shown.clear()
+        try:
+            self.query_one("#bustable", DataTable).clear()
+        except Exception:
+            pass
+        self._gw_bus_on = True
+        self.run_gateway_bus()
+
+    def _stop_gw_bus(self) -> None:
+        self._gw_bus_on = False
+
+    @work(group="gwbus", thread=True, exclusive=True)
+    def run_gateway_bus(self) -> None:
+        """Read the gateway's 0x93 N2K stream in short bursts and feed the Bus Monitor.
+
+        Shares the transport lock with the heartbeat poll and user commands, so it reads
+        a brief window then yields; a small sleep keeps it from starving the lock."""
+        from textual.worker import get_current_worker
+        worker = get_current_worker()
+        while self._gw_bus_on and self.gw is not None and not worker.is_cancelled:
+            try:
+                msgs = self.gw.read_n2k(0.2)
+            except Exception:  # noqa: BLE001 — a dead transport (or no stream) ends it
+                return
+            for m in msgs:
+                self.call_from_thread(self._bus_push, m)
+            time.sleep(0.02)
+
     def _bus_push(self, frame) -> None:
         try:
             table = self.query_one("#bustable", DataTable)
@@ -746,7 +782,8 @@ class ActuiSenseApp(App):
         from .device import Gateway, open_transport
         target = spec["target"]
         baud = int(spec.get("baud", 115200))
-        self._stop_bus()  # leaving WAGO bus-monitor mode, if we were in it
+        self._stop_bus()     # leaving WAGO bus-monitor mode, if we were in it
+        self._stop_gw_bus()  # stop any prior gateway stream so the new one starts clean
         try:
             transport = open_transport(target, baud=baud)
         except Exception as e:  # noqa: BLE001
@@ -767,6 +804,7 @@ class ActuiSenseApp(App):
         self.notify("Connected: %s" % self.gw.name)
         self._update_tabs()
         self.connect()
+        self._start_gw_bus()
 
     def start_bus(self, host: str, username: str, password: str, iface: str = "can0") -> None:
         """Start streaming can0 from a WAGO PLC over SSH into the Bus Monitor tab."""
@@ -790,8 +828,9 @@ class ActuiSenseApp(App):
             self.notify("WAGO connection failed: %s" % e, severity="error")
             self.set_status("WAGO connection failed")
             return
-        # Entering bus-monitor mode: drop any Actisense gateway so the PGN Filter /
-        # Activity Log tabs (which only mean anything with a gateway) are removed.
+        # Entering WAGO bus-monitor mode: stop the gateway N2K stream and drop any
+        # Actisense gateway so the PGN Filter / Activity Log tabs are removed.
+        self._stop_gw_bus()
         if self.gw is not None:
             try:
                 self.gw.close()

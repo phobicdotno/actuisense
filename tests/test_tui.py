@@ -128,6 +128,7 @@ def test_activity_log_records_exchanges():
         gw = Gateway(LoggingFakeTransport(), response_window=0.05)
         app = ActuiSenseApp(gw)
         async with app.run_test() as pilot:
+            app._stop_gw_bus()  # the gateway N2K stream loops forever; stop it before waiting
             await app.workers.wait_for_complete()
             await pilot.pause()
             # connect issued: Get Operating Mode (OK) + Get RX/TX lists (Timeout)
@@ -292,8 +293,8 @@ def test_tabs_follow_connection_mode():
             await pilot.pause()
             tc = app.query_one(TabbedContent)
             hidden = lambda tid: not tc.get_tab(tid).display
-            # gateway connected -> Bus Monitor hidden, gateway tabs shown
-            assert hidden("bustab")
+            # gateway connected -> all three tabs (Bus Monitor fed by the gateway stream)
+            assert not hidden("bustab")
             assert not hidden("filtertab") and not hidden("logtab")
             assert tc.active == "filtertab"
             # switch to WAGO bus-monitor mode -> only Bus Monitor remains
@@ -367,4 +368,41 @@ def test_bus_monitor_splits_rows_by_instance():
             assert set(by_inst) == {"0", "1", "2", "3", ""}
             assert by_inst["0"][5] == "2"  # instance 0 counted twice
             assert by_inst[""][5] == "2"   # System Time collapsed, counted twice
+    _run(scenario)
+
+
+def test_gateway_n2k_stream_feeds_bus_monitor():
+    from actuisense.protocol import N2kMessage
+    from textual.widgets import DataTable, TabbedContent
+
+    class N2kGateway(FakeGateway):
+        """A gateway that emits two engine frames (instances 0 and 1) once."""
+        def __init__(self):
+            super().__init__()
+            self._msgs = [
+                N2kMessage(priority=6, pgn=127488, dest=255, source=104,
+                           timestamp=0, data=bytes([0])),
+                N2kMessage(priority=6, pgn=127488, dest=255, source=104,
+                           timestamp=0, data=bytes([1])),
+            ]
+
+        def read_n2k(self, window=0.2):
+            out, self._msgs = self._msgs, []
+            return out
+
+    async def scenario():
+        app = ActuiSenseApp(N2kGateway())
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            tc = app.query_one(TabbedContent)
+            assert tc.get_tab("bustab").display  # Bus Monitor visible on a gateway
+            bt = app.query_one("#bustable", DataTable)
+            # the reader auto-started on mount; wait for it to push, then stop it
+            for _ in range(50):
+                await pilot.pause()
+                if bt.row_count >= 2:
+                    break
+            app._stop_gw_bus()
+            await pilot.pause()
+            assert bt.row_count == 2  # two engine instances split into two rows
     _run(scenario)

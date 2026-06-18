@@ -300,3 +300,46 @@ def parse_pgn_query(frame: Frame) -> Optional[Tuple[int, bool]]:
         return None
     pgn = p[12] | (p[13] << 8) | (p[14] << 16)
     return pgn, bool(p[16])
+
+
+@dataclass(frozen=True)
+class N2kMessage:
+    """A received NMEA 2000 message decoded from an Actisense 0x93 frame."""
+    priority: int
+    pgn: int
+    dest: int
+    source: int
+    timestamp: int   # raw 32-bit gateway timestamp (ms), as logged by the NGT-1
+    data: bytes
+
+
+def build_n2k_recv(pgn: int, source: int, data: bytes, *, priority: int = 6,
+                   dest: int = 0xFF, timestamp: int = 0) -> bytes:
+    """Build an Actisense N2K-received frame (command 0x93). Used in tests."""
+    payload = bytes((priority & 0xFF,
+                     pgn & 0xFF, (pgn >> 8) & 0xFF, (pgn >> 16) & 0xFF,
+                     dest & 0xFF, source & 0xFF,
+                     timestamp & 0xFF, (timestamp >> 8) & 0xFF,
+                     (timestamp >> 16) & 0xFF, (timestamp >> 24) & 0xFF,
+                     len(data))) + bytes(data)
+    return build_frame(N2K_MSG_RECV, payload)
+
+
+def parse_n2k_recv(frame: Frame) -> Optional[N2kMessage]:
+    """Decode an Actisense N2K-received frame (command 0x93) into an N2kMessage.
+
+    Payload layout (canboat actisense-serial.c n2kMessageReceived): [0] priority,
+    [1:4] PGN little-endian 24-bit, [4] destination, [5] source, [6:10] timestamp
+    (little-endian 32-bit, logged by the NGT-1), [10] data length, [11:] N2K data.
+    Returns None for non-0x93 frames, a bad CRC, or a truncated payload.
+    """
+    if frame.command != N2K_MSG_RECV or not frame.crc_ok:
+        return None
+    p = frame.payload
+    if len(p) < 11:
+        return None
+    pgn = p[1] | (p[2] << 8) | (p[3] << 16)
+    ts = p[6] | (p[7] << 8) | (p[8] << 16) | (p[9] << 24)
+    ln = p[10]
+    return N2kMessage(priority=p[0], pgn=pgn, dest=p[4], source=p[5],
+                      timestamp=ts, data=bytes(p[11:11 + ln]))
