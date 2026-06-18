@@ -3,6 +3,21 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.3.11] - 2026-06-18
+
+### Added
+- **Bus Monitor now has a filter box** (like the PGN Filter tab): type a PGN number or
+  name to narrow the live rows. New frames respect the active filter; clearing it brings
+  every captured row back.
+- **`Ctrl+F` focuses whichever filter belongs to the open tab** (PGN Filter or Bus
+  Monitor).
+
+### Changed
+- **The footer only lists shortcuts useful on the current tab.** RX/TX toggles,
+  select-all, Activate, Commit, Reload and Mode show only on the PGN Filter tab; the Bus
+  Monitor and Activity Log tabs show only their relevant keys. Connection/Quit stay
+  global.
+
 ## [0.3.10] - 2026-06-18
 
 ### Fixed

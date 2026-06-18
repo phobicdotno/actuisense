@@ -209,3 +209,60 @@ def test_connection_type_switch_drops_mismatched_value():
             await pilot.pause()
             assert target.value == "/dev/ttyUSB0"
     _run(scenario)
+
+
+def _bus_frame(pgn, src, data=b"\x01\x02"):
+    from types import SimpleNamespace
+    return SimpleNamespace(pgn=pgn, source=src, timestamp=12345.678, data=data)
+
+
+def test_bus_monitor_filter_narrows_and_restores():
+    from textual.widgets import DataTable
+
+    async def scenario():
+        app = ActuiSenseApp(FakeGateway())
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            bt = app.query_one("#bustable", DataTable)
+            for f in (_bus_frame(127488, 104), _bus_frame(127493, 104),
+                      _bus_frame(65284, 5), _bus_frame(127488, 104)):
+                app._bus_push(f)
+            await pilot.pause()
+            assert bt.row_count == 3  # three distinct pgn:src, last is a repeat
+            app._apply_bus_filter("127488")
+            await pilot.pause()
+            assert bt.row_count == 1
+            # a non-matching frame stays hidden; a matching one updates in place
+            app._bus_push(_bus_frame(60928, 7))
+            app._bus_push(_bus_frame(127488, 104))
+            await pilot.pause()
+            assert bt.row_count == 1
+            app._apply_bus_filter("")
+            await pilot.pause()
+            assert bt.row_count == 4  # the hidden 60928:7 now appears too
+    _run(scenario)
+
+
+def test_footer_shortcuts_are_tab_aware():
+    from textual.widgets import TabbedContent
+
+    async def scenario():
+        app = ActuiSenseApp(FakeGateway())
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            tc = app.query_one(TabbedContent)
+            vis = lambda a: app.check_action(a, ())
+            tc.active = "filtertab"
+            await pilot.pause()
+            assert vis("toggle_rx") is True and vis("commit") is True
+            assert vis("quit") is True  # global
+            tc.active = "bustab"
+            await pilot.pause()
+            assert vis("toggle_rx") is None and vis("commit") is None
+            assert vis("focus_filter") is True  # bus monitor has a filter too
+            tc.active = "logtab"
+            await pilot.pause()
+            assert vis("toggle_poll") is True and vis("toggle_rx") is None
+    _run(scenario)

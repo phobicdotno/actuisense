@@ -257,8 +257,8 @@ class ActuiSenseApp(App):
     SUB_TITLE = "v%s   •   2026 © Karstein Kvistad" % __version__
     CSS = """
     #status { height: 1; padding: 0 1; background: $boost; color: $text; }
-    #filterbar { height: 3; }
-    #filter { width: 1fr; }
+    #filterbar, #busfilterbar { height: 3; }
+    #filter, #busfilter { width: 1fr; }
     DataTable { height: 1fr; }
     #actions, #logactions { height: 3; align: left middle; }
     #actions Button, #logactions Button { margin: 0 1 0 0; }
@@ -281,6 +281,18 @@ class ActuiSenseApp(App):
         Binding("q", "quit", "Quit"),
     ]
 
+    # Which tab(s) each action is useful on; actions not listed are global (shown
+    # everywhere). Drives check_action() so the Footer only shows relevant shortcuts.
+    _TAB_ACTIONS = {
+        "toggle_rx": {"filtertab"}, "toggle_tx": {"filtertab"},
+        "toggle_both": {"filtertab"}, "select_all_rx": {"filtertab"},
+        "select_all_tx": {"filtertab"}, "select_all_both": {"filtertab"},
+        "activate": {"filtertab"}, "commit": {"filtertab"},
+        "cycle_mode": {"filtertab"}, "reload": {"filtertab"},
+        "focus_filter": {"filtertab", "bustab"},
+        "toggle_poll": {"filtertab", "logtab"},
+    }
+
     def __init__(self, gateway=None, db: Optional[PgnDb] = None):
         super().__init__()
         self.gw = gateway
@@ -296,7 +308,10 @@ class ActuiSenseApp(App):
         self._sort_state = {}  # table id -> (column_key, reverse) for header-click sort
         # Bus monitor (WAGO/can0) state.
         self._bus_source = None
-        self._bus_rows = {}   # (pgn, src) -> running count
+        self._bus_rows = {}   # key "pgn:src" -> running count
+        self._bus_data = {}   # key -> (ts, pgn, name, src, cnt, hexdata) for repopulation
+        self._bus_shown = set()  # keys currently displayed (after the bus filter)
+        self._bus_filter = ""
         self.last_target: Optional[str] = None
         self.last_baud: Optional[int] = None
 
@@ -322,6 +337,8 @@ class ActuiSenseApp(App):
                     yield Button("Mode (m)", id="mode")
                     yield Button("Connection (^O)", id="connect")
             with TabPane("Bus Monitor", id="bustab"):
+                with Horizontal(id="busfilterbar"):
+                    yield Input(placeholder="filter PGNs (number or name)…", id="busfilter")
                 bust = DataTable(id="bustable", cursor_type="row", zebra_stripes=True)
                 bust.add_column("Time", key="time", width=12)
                 bust.add_column("PGN", key="pgn", width=8)
@@ -356,6 +373,25 @@ class ActuiSenseApp(App):
 
     def on_unmount(self) -> None:
         self._stop_bus()
+
+    # -- tab-aware shortcuts ------------------------------------------------
+
+    def _active_tab(self) -> str:
+        try:
+            return str(self.query_one(TabbedContent).active)
+        except Exception:
+            return "filtertab"
+
+    def check_action(self, action: str, parameters):
+        """Hide (and disable) bindings that aren't useful on the current tab, so the
+        Footer only lists the shortcuts relevant to what's open."""
+        tabs = self._TAB_ACTIONS.get(action)
+        if tabs is None:
+            return True  # global binding (connection, quit, palette)
+        return True if self._active_tab() in tabs else None
+
+    def on_tabbed_content_tab_activated(self, event) -> None:
+        self.refresh_bindings()
 
     # -- PGN table ----------------------------------------------------------
 
@@ -547,15 +583,52 @@ class ActuiSenseApp(App):
         hexdata = frame.data.hex(" ")
         if key in self._bus_rows:
             cnt = self._bus_rows[key] + 1
-            self._bus_rows[key] = cnt
-            table.update_cell(key, "time", ts)
-            table.update_cell(key, "cnt", str(cnt))
-            table.update_cell(key, "data", hexdata)
         else:
             if len(self._bus_rows) >= BUS_VIEW_MAX:
                 return  # cap distinct rows; ignore further new PGN/source pairs
-            self._bus_rows[key] = 1
-            table.add_row(ts, str(frame.pgn), name, str(frame.source), "1", hexdata, key=key)
+            cnt = 1
+        self._bus_rows[key] = cnt
+        self._bus_data[key] = (ts, str(frame.pgn), name, str(frame.source), str(cnt), hexdata)
+        self._bus_render_row(table, key)
+
+    def _bus_match(self, key: str) -> bool:
+        """A bus row matches if the filter is empty, or appears in its PGN or name."""
+        f = self._bus_filter.strip().lower()
+        if not f:
+            return True
+        _ts, pgn, name, _src, _cnt, _data = self._bus_data[key]
+        return f in pgn or f in name.lower()
+
+    def _bus_render_row(self, table: DataTable, key: str) -> None:
+        """Add/update/remove a single bus row so the table reflects the active filter."""
+        if self._bus_match(key):
+            row = self._bus_data[key]
+            if key in self._bus_shown:
+                table.update_cell(key, "time", row[0])
+                table.update_cell(key, "cnt", row[4])
+                table.update_cell(key, "data", row[5])
+            else:
+                table.add_row(*row, key=key)
+                self._bus_shown.add(key)
+        elif key in self._bus_shown:
+            try:
+                table.remove_row(key)
+            except Exception:
+                pass
+            self._bus_shown.discard(key)
+
+    def _apply_bus_filter(self, flt: str) -> None:
+        self._bus_filter = flt
+        try:
+            table = self.query_one("#bustable", DataTable)
+        except Exception:
+            return
+        table.clear()
+        self._bus_shown.clear()
+        for key in self._bus_data:
+            if self._bus_match(key):
+                table.add_row(*self._bus_data[key], key=key)
+                self._bus_shown.add(key)
 
     def _stop_bus(self) -> None:
         if self._bus_source is not None:
@@ -615,6 +688,8 @@ class ActuiSenseApp(App):
         from .wago import CandumpSource, WagoError
         self._stop_bus()
         self._bus_rows.clear()
+        self._bus_data.clear()
+        self._bus_shown.clear()
         try:
             self.query_one("#bustable", DataTable).clear()
         except Exception:
@@ -797,7 +872,11 @@ class ActuiSenseApp(App):
         self.do_set_mode(nxt)
 
     def action_focus_filter(self) -> None:
-        self.query_one("#filter", Input).focus()
+        wid = "#busfilter" if self._active_tab() == "bustab" else "#filter"
+        try:
+            self.query_one(wid, Input).focus()
+        except Exception:
+            pass
 
     def action_toggle_poll(self) -> None:
         self.poll_paused = not self.poll_paused
@@ -814,6 +893,8 @@ class ActuiSenseApp(App):
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id == "filter":
             self.populate_table(event.value)
+        elif event.input.id == "busfilter":
+            self._apply_bus_filter(event.value)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         {"activate": self.action_activate, "commit": self.action_commit,
