@@ -100,3 +100,19 @@ def test_actions_safe_without_gateway():
             await pilot.pause()
             assert app.gw is None  # still disconnected, no exceptions raised
     _run(scenario)
+
+
+def test_serial_ports_real_device_first(monkeypatch):
+    """Ports with a real device (a connected gateway) sort above empty/'n/a' ones."""
+    from actuisense import tui
+
+    class _P:
+        def __init__(self, dev, desc):
+            self.device, self.description = dev, desc
+
+    fake = [_P("/dev/ttyS8", "n/a"), _P("/dev/ttyS0", "n/a"),
+            _P("/dev/ttyUSB0", "NGX-1"), _P("/dev/ttyS1", "")]
+    monkeypatch.setattr("serial.tools.list_ports.comports", lambda: fake)
+    ports = tui.list_serial_ports()
+    assert ports[0] == ("/dev/ttyUSB0", "NGX-1")            # real device on top
+    assert [d for d, _ in ports[1:]] == ["/dev/ttyS0", "/dev/ttyS1", "/dev/ttyS8"]  # rest sorted

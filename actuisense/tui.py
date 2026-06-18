@@ -32,6 +32,7 @@ from textual.screen import ModalScreen
 from textual.widgets import (Button, DataTable, Footer, Header, Input, Label,
                              Select, Static, TabbedContent, TabPane)
 
+from . import __version__
 from .pgndb import PgnDb
 from .protocol import OperatingMode, PgnList
 
@@ -57,7 +58,15 @@ def list_serial_ports():
         from serial.tools import list_ports
     except Exception:  # pragma: no cover — pyserial missing
         return []
-    return [(p.device, p.description or "") for p in list_ports.comports()]
+    ports = [(p.device, p.description or "") for p in list_ports.comports()]
+    # Sort ports that report a real device (a connected gateway, e.g. "NGX-1") to
+    # the top; the empty / "n/a" legacy ports (ttyS0..ttySN) sink to the bottom.
+    # Stable within each group, then by device name.
+    def _has_device(desc: str) -> bool:
+        d = desc.strip().lower()
+        return bool(d) and d != "n/a"
+    ports.sort(key=lambda dd: (not _has_device(dd[1]), dd[0]))
+    return ports
 
 
 class ConnectionScreen(ModalScreen):
@@ -93,6 +102,10 @@ class ConnectionScreen(ModalScreen):
         ports = list_serial_ports()
         detected = [("%s  %s" % (dev, desc)).rstrip() for dev, desc in ports]
         detected_opts = [(label, dev) for label, (dev, _d) in zip(detected, ports)]
+        # list_serial_ports() puts ports with a real device first, so the first one
+        # (if any) is the connected gateway -- pre-fill the target with it.
+        first_real = next((dev for dev, desc in ports
+                           if desc.strip() and desc.strip().lower() != "n/a"), None)
         with Vertical(id="conn-dialog"):
             yield Static("Connection", id="conn-title")
 
@@ -108,7 +121,7 @@ class ConnectionScreen(ModalScreen):
 
             yield Static("Port / host", classes="conn-label")
             yield Input(
-                value=self._current_target or "",
+                value=self._current_target or first_real or "",
                 placeholder="COM5  •  /dev/ttyUSB0  •  tcp://host:60002  •  10.0.0.202",
                 id="conn-target")
 
@@ -174,6 +187,7 @@ class ConnectionScreen(ModalScreen):
 
 class ActuiSenseApp(App):
     TITLE = "AcTuiSense"
+    SUB_TITLE = "v%s   •   2026 © Karstein Kvistad" % __version__
     CSS = """
     #status { height: 1; padding: 0 1; background: $boost; color: $text; }
     #filterbar { height: 3; }
@@ -184,9 +198,12 @@ class ActuiSenseApp(App):
     """
 
     BINDINGS = [
-        Binding("r", "toggle_rx", "Toggle RX"),
-        Binding("t", "toggle_tx", "Toggle TX"),
+        Binding("r", "toggle_rx", "RX"),
+        Binding("t", "toggle_tx", "TX"),
+        Binding("b", "toggle_both", "Both"),
         Binding("space", "toggle_tx", "Toggle TX", show=False),
+        Binding("R", "select_all_rx", "All RX"),   # Shift+R: select/clear all (shown) RX
+        Binding("T", "select_all_tx", "All TX"),   # Shift+T: select/clear all (shown) TX
         Binding("a", "activate", "Activate"),
         Binding("c", "commit", "Commit EEPROM"),
         Binding("f5", "reload", "Reload"),
@@ -564,6 +581,67 @@ class ActuiSenseApp(App):
     def action_toggle_tx(self) -> None:
         self._toggle(PgnList.TX)
 
+    def action_toggle_both(self) -> None:
+        """Toggle RX and TX together for the highlighted PGN (key: b)."""
+        if self.gw is None:
+            self.notify("no gateway connected (bus monitor only)", severity="warning")
+            return
+        pgn = self._highlighted_pgn()
+        if pgn is None:
+            return
+        target = not (pgn in self.rx_enabled and pgn in self.tx_enabled)  # on unless both already on
+        for which, enabled in ((PgnList.RX, self.rx_enabled), (PgnList.TX, self.tx_enabled)):
+            if target and pgn not in enabled:
+                enabled.add(pgn); self.push_pgn(which, pgn, True)
+            elif not target and pgn in enabled:
+                enabled.discard(pgn); self.push_pgn(which, pgn, False)
+        self.dirty = True
+        self.refresh_marks()
+        self.render_status()
+
+    def _select_all(self, which: PgnList) -> None:
+        """Select (or, if already all selected, clear) the RX or TX box for every PGN
+        currently shown in the table -- so a filter + Shift+R/T acts on that subset."""
+        if self.gw is None:
+            self.notify("no gateway connected", severity="warning")
+            return
+        enabled = self.tx_enabled if which == PgnList.TX else self.rx_enabled
+        pgns = list(self._row_pgn.values())
+        if not pgns:
+            return
+        target = not all(p in enabled for p in pgns)  # all on -> clear; else select all
+        to_push = []
+        for pgn in pgns:
+            if target and pgn not in enabled:
+                enabled.add(pgn); to_push.append((pgn, True))
+            elif not target and pgn in enabled:
+                enabled.discard(pgn); to_push.append((pgn, False))
+        if not to_push:
+            return
+        self.dirty = True
+        self.refresh_marks()
+        self.render_status()
+        self.set_status("%s %s for %d PGN(s) (writing to gateway…)"
+                        % ("Selected" if target else "Cleared", which.name, len(to_push)))
+        self._push_many(which, to_push)
+
+    @work(thread=True, group="push")
+    def _push_many(self, which: PgnList, items) -> None:
+        """Write a batch of per-PGN enable/disable commands off the UI thread."""
+        for pgn, on in items:
+            try:
+                self.gw.set_pgn(which, pgn, on)
+            except Exception as e:  # noqa: BLE001
+                self.call_from_thread(self.notify, "set_pgn failed: %s" % e, severity="error")
+                return
+        self.call_from_thread(self.render_status)
+
+    def action_select_all_rx(self) -> None:
+        self._select_all(PgnList.RX)
+
+    def action_select_all_tx(self) -> None:
+        self._select_all(PgnList.TX)
+
     def action_activate(self) -> None:
         if self.gw is None:
             self.notify("no gateway connected", severity="warning")
@@ -635,10 +713,45 @@ def run_tui(port: Optional[str] = None, baud: int = 115200) -> int:
     app = ActuiSenseApp(gw)
     app.last_target = port
     app.last_baud = baud
+
+    # A SIGTERM/SIGHUP kill skips Python cleanup, leaving the terminal in
+    # mouse-reporting mode -- then every mouse move prints as raw escape codes
+    # (e.g. "35;38;28M..."). Turn those signals into a clean interrupt so the
+    # `finally` below runs and restores the terminal.
+    import signal
+    import sys
+
+    def _signal_exit(_signum, _frame):
+        raise KeyboardInterrupt
+
+    _prev = {}
+    for _sig_name in ("SIGTERM", "SIGHUP"):
+        _sig = getattr(signal, _sig_name, None)
+        if _sig is not None:
+            try:
+                _prev[_sig] = signal.signal(_sig, _signal_exit)
+            except (ValueError, OSError):  # not main thread / unsupported
+                pass
     try:
         app.run()
+    except KeyboardInterrupt:
+        pass
     finally:
+        for _sig, _handler in _prev.items():
+            try:
+                signal.signal(_sig, _handler)
+            except (ValueError, OSError):
+                pass
         if gw is not None:
             gw.close()
         app._stop_bus()
+        # Belt-and-suspenders: ensure mouse reporting is OFF so a kill never
+        # leaves the terminal spewing mouse escape codes (idempotent if Textual
+        # already restored it on a clean exit).
+        try:
+            sys.stdout.write("\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?1015l")
+            sys.stdout.flush()
+        except Exception:
+            pass
+    return 0
     return 0

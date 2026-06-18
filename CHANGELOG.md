@@ -3,6 +3,28 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.3.2] - 2026-06-18
+
+### Added
+- **`b` toggles both RX and TX** for the highlighted PGN at once.
+- **Shift+R / Shift+T select (or, if all already on, clear) ALL** shown PGNs' RX / TX
+  boxes. Acts on the current filtered subset, so filter then Shift+R/T; the writes
+  to the gateway run off the UI thread. (The gateway may cap how many it accepts --
+  press F5 to re-read the actual enabled set.)
+
+### Changed
+- **Connection dialog: connected gateways sort to the top.** Detected serial ports
+  that report a real device (e.g. `NGX-1`) now list above the empty / `n/a` legacy
+  `ttyS*` ports, and the target field is pre-filled with the first real port -- so
+  the dialog opens ready to connect instead of burying the gateway at the bottom.
+- TUI header now shows the **version** and **2026 (c) Karstein Kvistad**.
+
+### Fixed
+- **A SIGTERM/SIGHUP kill no longer leaves the terminal spewing mouse escape codes.**
+  The TUI now traps those signals, exits cleanly, and disables mouse reporting on
+  the way out (idempotent on a normal quit). If you still see leftover garbage from
+  an older kill, run `reset`.
+
 ## [0.3.1] - 2026-06-17
 
 ### Fixed
