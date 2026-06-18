@@ -3,6 +3,26 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.4.0] - 2026-06-18
+
+### Added
+- **Save/load the Rx/Tx enable lists to a human-readable file.**
+  - TUI: `s` / `Save` writes the current RX/TX lists to a file; `l` / `Load` reads one
+    back, writes the difference to the gateway and stages it (press Activate to apply).
+  - CLI: `actuisense save <file> -p <port>` and `actuisense load <file> -p <port>
+    [--commit]`. Load makes the gateway match the file (enables missing PGNs, disables
+    extras).
+  - Format is an annotated text file with `[RX]` / `[TX]` sections, one PGN per line with
+    its name as a `#` comment. Hand-editable: comments, blank lines and the name
+    annotations are ignored on load, so only the PGN numbers matter. New module
+    `actuisense.pgnfile` (pure encode/decode, unit-tested).
+
+### Note
+- The Actisense gateways cap how many PGNs a list can hold: ~38 per list for the legacy
+  Format-1 path (BST single-frame limit), 74 on the fast-packet path, up to 250 Rx / 150
+  Tx on newer firmware's Format 2. A loaded file larger than the cap will be truncated by
+  the device -- press Reload (F5) to see what it actually kept.
+
 ## [0.3.12] - 2026-06-18
 
 ### Changed

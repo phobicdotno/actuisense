@@ -34,6 +34,10 @@ class FakeGateway:
     def set_pgn(self, which, pgn, enable):
         self.calls.append((which, pgn, enable))
 
+    def set_pgns_bulk(self, which, items):
+        for pgn, enable in items:
+            self.calls.append((which, pgn, enable))
+
     def set_operating_mode(self, m):
         self.mode = m
 
@@ -300,4 +304,36 @@ def test_tabs_follow_connection_mode():
             assert hidden("filtertab") and hidden("logtab")
             assert not hidden("bustab")
             assert tc.active == "bustab"
+    _run(scenario)
+
+
+def test_tui_save_then_load_roundtrip(tmp_path):
+    from actuisense.protocol import PgnList
+    path = str(tmp_path / "lists.txt")
+
+    async def scenario():
+        gw = FakeGateway()
+        app = ActuiSenseApp(gw)
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            app.rx_enabled = {60928, 59392}
+            app.tx_enabled = {127245, 130306}
+            app._do_save_lists(path)
+            await pilot.pause()
+            text = open(path, encoding="utf-8").read()
+            assert "[RX]" in text and "60928" in text and "127245" in text
+            # change state, then load the file back -> sets restored, gateway written
+            app.rx_enabled = set()
+            app.tx_enabled = set()
+            gw.calls.clear()
+            app._do_load_lists(path)
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            assert app.rx_enabled == {60928, 59392}
+            assert app.tx_enabled == {127245, 130306}
+            assert app.dirty is True
+            # the gateway actually received the enable writes from the load
+            assert (PgnList.RX, 60928, True) in gw.calls
+            assert (PgnList.TX, 127245, True) in gw.calls
     _run(scenario)

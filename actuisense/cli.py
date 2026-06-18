@@ -63,6 +63,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_list.add_argument("which", choices=_WHICH.keys())
     _add_conn(p_list)
 
+    p_save = sub.add_parser("save", help="save the Rx/Tx enable lists to a human-readable file")
+    p_save.add_argument("file", help="output file path")
+    _add_conn(p_save)
+
+    p_load = sub.add_parser("load", help="load Rx/Tx enable lists from a file and apply them")
+    p_load.add_argument("file", help="input file path")
+    _add_conn(p_load)
+    p_load.add_argument("--commit", action="store_true", help="persist to EEPROM")
+
     p_raw = sub.add_parser("raw", help="dump raw gateway diagnostic queries (read-only, hex)")
     _add_conn(p_raw)
 
@@ -132,6 +141,51 @@ def cmd_list(gw: Gateway, db: PgnDb, which: PgnList) -> int:
     cands = [i.pgn for i in db.all()]
     _print_list(db, "%s enabled" % which.name,
                 gw.get_pgn_list(which, scan_candidates=cands, scan_progress=_scan_progress))
+    return 0
+
+
+def cmd_save(gw: Gateway, db: PgnDb, path: str) -> int:
+    """Read both enable lists off the gateway and write them to a readable file."""
+    import datetime
+
+    from .pgnfile import dump_lists
+    cands = [i.pgn for i in db.all()]
+    rx = gw.get_pgn_list(PgnList.RX, scan_candidates=cands, scan_progress=_scan_progress)
+    tx = gw.get_pgn_list(PgnList.TX, scan_candidates=cands, scan_progress=_scan_progress)
+    mode = gw.get_operating_mode()
+    text = dump_lists(rx, tx, db, gateway=gw.name,
+                      mode=(mode.name if mode else None),
+                      when=datetime.datetime.now().isoformat(timespec="seconds"))
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(text)
+    print("Saved %d RX + %d TX PGNs to %s" % (len(set(rx)), len(set(tx)), path))
+    return 0
+
+
+def cmd_load(gw: Gateway, db: PgnDb, path: str, commit: bool) -> int:
+    """Make the gateway's enable lists match a saved file (enable missing, disable extra)."""
+    from .pgnfile import parse_lists
+    with open(path, "r", encoding="utf-8") as f:
+        rx_want, tx_want = parse_lists(f.read())
+    cands = [i.pgn for i in db.all()]
+    changed = 0
+    for which, want in ((PgnList.RX, rx_want), (PgnList.TX, tx_want)):
+        cur = set(gw.get_pgn_list(which, scan_candidates=cands, scan_progress=_scan_progress))
+        to_enable = sorted(want - cur)
+        to_disable = sorted(cur - want)
+        if not to_enable and not to_disable:
+            print("%s: already matches (%d PGNs)" % (which.name, len(want)))
+            continue
+        gw.set_pgns_bulk(which, [(p, True) for p in to_enable] + [(p, False) for p in to_disable])
+        gw.activate()
+        changed += len(to_enable) + len(to_disable)
+        print("%s: +%d enabled, -%d disabled (now %d)"
+              % (which.name, len(to_enable), len(to_disable), len(want)))
+    if changed and commit:
+        gw.commit_eeprom()
+        print("Committed to EEPROM.")
+    elif changed:
+        print("(RAM only -- add --commit to persist)")
     return 0
 
 
@@ -208,6 +262,10 @@ def main(argv: Optional[List[str]] = None) -> int:
                 return cmd_enable(gw, db, _WHICH[args.which], args.pgns, False, args.commit)
             if args.cmd == "list":
                 return cmd_list(gw, db, _WHICH[args.which])
+            if args.cmd == "save":
+                return cmd_save(gw, db, args.file)
+            if args.cmd == "load":
+                return cmd_load(gw, db, args.file, args.commit)
             if args.cmd == "raw":
                 return cmd_raw(gw)
     except GatewayError as e:

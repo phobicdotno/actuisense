@@ -252,6 +252,48 @@ class ConnectionScreen(ModalScreen):
         self.dismiss({"kind": "serial", "target": target, "baud": baud})
 
 
+class FilenameScreen(ModalScreen):
+    """Prompt for a file path. Dismisses with the path string, or None on cancel."""
+
+    CSS = """
+    FilenameScreen { align: center middle; }
+    #fn-dialog { width: 72; height: auto; padding: 1 2; border: round $accent; background: $surface; }
+    #fn-title { text-style: bold; margin-bottom: 1; }
+    #fn-buttons { height: auto; margin-top: 1; }
+    #fn-dialog Button { margin: 0 1 0 0; }
+    """
+
+    BINDINGS = [Binding("escape", "cancel", "Cancel")]
+
+    def __init__(self, title: str, default: str = "") -> None:
+        super().__init__()
+        self._title = title
+        self._default = default
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="fn-dialog"):
+            yield Static(self._title, id="fn-title")
+            yield Input(value=self._default, placeholder="path/to/lists.txt", id="fn-input")
+            with Horizontal(id="fn-buttons"):
+                yield Button("OK", id="fn-ok", variant="success")
+                yield Button("Cancel", id="fn-cancel")
+
+    def on_mount(self) -> None:
+        self.query_one("#fn-input", Input).focus()
+
+    def _submit(self) -> None:
+        self.dismiss(self.query_one("#fn-input", Input).value.strip() or None)
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        self._submit()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        self._submit() if event.button.id == "fn-ok" else self.dismiss(None)
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
 class ActuiSenseApp(App):
     TITLE = "AcTuiSense"
     SUB_TITLE = "v%s   •   2026 © Karstein Kvistad" % __version__
@@ -273,6 +315,8 @@ class ActuiSenseApp(App):
         Binding("B", "select_all_both", "All Both"),  # Shift+B: select/clear all (shown) RX+TX
         Binding("a", "activate", "Activate"),
         Binding("c", "commit", "Commit EEPROM"),
+        Binding("s", "save_lists", "Save"),
+        Binding("l", "load_lists", "Load"),
         Binding("f5", "reload", "Reload"),
         Binding("m", "cycle_mode", "Mode"),
         Binding("p", "toggle_poll", "Pause poll"),
@@ -288,6 +332,7 @@ class ActuiSenseApp(App):
         "toggle_both": {"filtertab"}, "select_all_rx": {"filtertab"},
         "select_all_tx": {"filtertab"}, "select_all_both": {"filtertab"},
         "activate": {"filtertab"}, "commit": {"filtertab"},
+        "save_lists": {"filtertab"}, "load_lists": {"filtertab"},
         "cycle_mode": {"filtertab"}, "reload": {"filtertab"},
         "focus_filter": {"filtertab", "bustab"},
         "toggle_poll": {"filtertab", "logtab"},
@@ -333,6 +378,8 @@ class ActuiSenseApp(App):
                 with Horizontal(id="actions"):
                     yield Button("Activate (a)", id="activate", variant="primary")
                     yield Button("Commit → EEPROM (c)", id="commit", variant="warning")
+                    yield Button("Save (s)", id="save")
+                    yield Button("Load (l)", id="load")
                     yield Button("Reload (F5)", id="reload")
                     yield Button("Mode (m)", id="mode")
                     yield Button("Connection (^O)", id="connect")
@@ -900,6 +947,69 @@ class ActuiSenseApp(App):
             return
         self.connect()
 
+    def action_save_lists(self) -> None:
+        if self.gw is None:
+            self.notify("no gateway connected (bus monitor only)", severity="warning")
+            return
+        self.push_screen(FilenameScreen("Save RX/TX lists to file",
+                                        default="actuisense-lists.txt"),
+                         self._do_save_lists)
+
+    def _do_save_lists(self, path) -> None:
+        if not path:
+            return
+        import datetime
+
+        from .pgnfile import dump_lists
+        text = dump_lists(self.rx_enabled, self.tx_enabled, self.db,
+                          gateway=(self.gw.name if self.gw else None),
+                          mode=(self.mode.name if self.mode else None),
+                          when=datetime.datetime.now().isoformat(timespec="seconds"))
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(text)
+        except OSError as e:
+            self.notify("save failed: %s" % e, severity="error")
+            return
+        self.notify("Saved %d RX + %d TX PGNs to %s"
+                    % (len(self.rx_enabled), len(self.tx_enabled), path))
+
+    def action_load_lists(self) -> None:
+        if self.gw is None:
+            self.notify("no gateway connected (bus monitor only)", severity="warning")
+            return
+        self.push_screen(FilenameScreen("Load RX/TX lists from file",
+                                        default="actuisense-lists.txt"),
+                         self._do_load_lists)
+
+    def _do_load_lists(self, path) -> None:
+        if not path:
+            return
+        from .pgnfile import parse_lists
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                rx_want, tx_want = parse_lists(f.read())
+        except OSError as e:
+            self.notify("load failed: %s" % e, severity="error")
+            return
+        except ValueError as e:
+            self.notify("bad list file: %s" % e, severity="error")
+            return
+        for which, want, enabled in ((PgnList.RX, rx_want, self.rx_enabled),
+                                     (PgnList.TX, tx_want, self.tx_enabled)):
+            to_push = ([(p, True) for p in sorted(want - enabled)]
+                       + [(p, False) for p in sorted(enabled - want)])
+            if not to_push:
+                continue
+            enabled.clear()
+            enabled.update(want)
+            self._push_many(which, to_push)
+        self.dirty = True
+        self.refresh_marks()
+        self.render_status()
+        self.notify("Loaded %d RX + %d TX PGNs — press Activate (a) to apply"
+                    % (len(rx_want), len(tx_want)))
+
     def action_cycle_mode(self) -> None:
         if self.gw is None:
             self.notify("no gateway connected", severity="warning")
@@ -935,7 +1045,8 @@ class ActuiSenseApp(App):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         {"activate": self.action_activate, "commit": self.action_commit,
          "reload": self.action_reload, "mode": self.action_cycle_mode,
-         "connect": self.action_connection,
+         "connect": self.action_connection, "save": self.action_save_lists,
+         "load": self.action_load_lists,
          "poll": self.action_toggle_poll, "clearlog": self.action_clear_log,
          }.get(event.button.id, lambda: None)()
 
