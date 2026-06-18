@@ -391,6 +391,7 @@ class ActuiSenseApp(App):
                 bust.add_column("PGN", key="pgn", width=8)
                 bust.add_column("Name", key="name", width=34)
                 bust.add_column("Src", key="src", width=5)
+                bust.add_column("Inst", key="inst", width=5)
                 bust.add_column("Cnt", key="cnt", width=7)
                 bust.add_column("Data (hex)", key="data")
                 yield bust
@@ -432,11 +433,13 @@ class ActuiSenseApp(App):
 
     def check_action(self, action: str, parameters):
         """Hide (and disable) bindings that aren't useful on the current tab, so the
-        Footer only lists the shortcuts relevant to what's open."""
+        Footer only lists the shortcuts relevant to what's open. Textual drops a binding
+        from the footer only when check_action returns False (None would dim it but keep
+        it shown), so return False for off-tab actions."""
         tabs = self._TAB_ACTIONS.get(action)
         if tabs is None:
             return True  # global binding (connection, quit, palette)
-        return True if self._active_tab() in tabs else None
+        return True if self._active_tab() in tabs else False
 
     def on_tabbed_content_tab_activated(self, event) -> None:
         self.refresh_bindings()
@@ -653,7 +656,11 @@ class ActuiSenseApp(App):
             table = self.query_one("#bustable", DataTable)
         except Exception:
             return
-        key = "%d:%d" % (frame.pgn, frame.source)
+        inst = self.db.instance(frame.pgn, frame.data)
+        inst_s = "" if inst is None else str(inst)
+        # Split rows by device instance too: two engines/generators that report the
+        # same PGN from the same source still get a row each (Engine Instance etc.).
+        key = "%d:%d:%s" % (frame.pgn, frame.source, inst_s)
         ts = "%.3f" % (frame.timestamp % 100000)
         name = self.db.name(frame.pgn)
         hexdata = frame.data.hex(" ")
@@ -661,10 +668,10 @@ class ActuiSenseApp(App):
             cnt = self._bus_rows[key] + 1
         else:
             if len(self._bus_rows) >= BUS_VIEW_MAX:
-                return  # cap distinct rows; ignore further new PGN/source pairs
+                return  # cap distinct rows; ignore further new PGN/source/instance triples
             cnt = 1
         self._bus_rows[key] = cnt
-        self._bus_data[key] = (ts, str(frame.pgn), name, str(frame.source), str(cnt), hexdata)
+        self._bus_data[key] = (ts, str(frame.pgn), name, str(frame.source), inst_s, str(cnt), hexdata)
         self._bus_render_row(table, key)
 
     def _bus_match(self, key: str) -> bool:
@@ -672,7 +679,7 @@ class ActuiSenseApp(App):
         f = self._bus_filter.strip().lower()
         if not f:
             return True
-        _ts, pgn, name, _src, _cnt, _data = self._bus_data[key]
+        _ts, pgn, name, _src, _inst, _cnt, _data = self._bus_data[key]
         return f in pgn or f in name.lower()
 
     def _bus_render_row(self, table: DataTable, key: str) -> None:
@@ -681,8 +688,8 @@ class ActuiSenseApp(App):
             row = self._bus_data[key]
             if key in self._bus_shown:
                 table.update_cell(key, "time", row[0])
-                table.update_cell(key, "cnt", row[4])
-                table.update_cell(key, "data", row[5])
+                table.update_cell(key, "cnt", row[5])
+                table.update_cell(key, "data", row[6])
             else:
                 table.add_row(*row, key=key)
                 self._bus_shown.add(key)

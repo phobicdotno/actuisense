@@ -15,9 +15,9 @@ command log:
 
 ![AcTuiSense activity log tab](docs/screenshot-log.svg)
 
-> Validated end-to-end against a real **Actisense NGT-1** — reading the operating
-> mode and Rx/Tx enable lists, toggling per-PGN filters, activating, and committing
-> to EEPROM.
+> Validated end-to-end against a real **Actisense NGT-1** and **NGX-1** — reading the
+> operating mode and Rx/Tx enable lists, toggling per-PGN filters, activating, and
+> committing to EEPROM.
 
 ## Why
 

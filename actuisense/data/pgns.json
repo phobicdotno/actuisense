@@ -27,7 +27,11 @@
 {
 "pgn": 60928,
 "name": "ISO Address Claim",
-"fast": false
+"fast": false,
+"inst": [
+56,
+4
+]
 },
 {
 "pgn": 61184,
@@ -192,7 +196,11 @@
 {
 "pgn": 65240,
 "name": "ISO Commanded Address",
-"fast": false
+"fast": false,
+"inst": [
+56,
+4
+]
 },
 {
 "pgn": 65280,
@@ -217,7 +225,11 @@
 {
 "pgn": 65284,
 "name": "Honda: Engine Alerts  (proprietary)",
-"fast": false
+"fast": false,
+"inst": [
+16,
+8
+]
 },
 {
 "pgn": 65285,
@@ -227,32 +239,56 @@
 {
 "pgn": 65286,
 "name": "Chetco: Dimmer  (proprietary)",
-"fast": false
+"fast": false,
+"inst": [
+16,
+8
+]
 },
 {
 "pgn": 65287,
 "name": "Airmar: Access Level  (proprietary)",
-"fast": false
+"fast": false,
+"inst": [
+24,
+8
+]
 },
 {
 "pgn": 65288,
 "name": "Seatalk: Alarm  (proprietary)",
-"fast": false
+"fast": false,
+"inst": [
+24,
+8
+]
 },
 {
 "pgn": 65289,
 "name": "Maretron: 0-10 V  (proprietary)",
-"fast": false
+"fast": false,
+"inst": [
+24,
+8
+]
 },
 {
 "pgn": 65290,
 "name": "Maretron: Rotational Rate  (proprietary)",
-"fast": false
+"fast": false,
+"inst": [
+24,
+8
+]
 },
 {
 "pgn": 65291,
 "name": "Maretron: Resistance  (proprietary)",
-"fast": false
+"fast": false,
+"inst": [
+24,
+8
+]
 },
 {
 "pgn": 65292,
@@ -262,7 +298,11 @@
 {
 "pgn": 65293,
 "name": "Simnet: LGC-2000 Configuration  (proprietary)",
-"fast": false
+"fast": false,
+"inst": [
+16,
+8
+]
 },
 {
 "pgn": 65294,
@@ -532,7 +572,11 @@
 {
 "pgn": 126720,
 "name": "Fusion: Set Mute  (proprietary)",
-"fast": true
+"fast": true,
+"inst": [
+24,
+2
+]
 },
 {
 "pgn": 126976,
@@ -542,32 +586,56 @@
 {
 "pgn": 126983,
 "name": "Alert",
-"fast": true
+"fast": true,
+"inst": [
+104,
+8
+]
 },
 {
 "pgn": 126984,
 "name": "Alert Response",
-"fast": true
+"fast": true,
+"inst": [
+104,
+8
+]
 },
 {
 "pgn": 126985,
 "name": "Alert Text",
-"fast": true
+"fast": true,
+"inst": [
+104,
+8
+]
 },
 {
 "pgn": 126986,
 "name": "Alert Configuration",
-"fast": true
+"fast": true,
+"inst": [
+104,
+8
+]
 },
 {
 "pgn": 126987,
 "name": "Alert Threshold",
-"fast": true
+"fast": true,
+"inst": [
+104,
+8
+]
 },
 {
 "pgn": 126988,
 "name": "Alert Value",
-"fast": true
+"fast": true,
+"inst": [
+104,
+8
+]
 },
 {
 "pgn": 126992,
@@ -602,7 +670,11 @@
 {
 "pgn": 127245,
 "name": "Rudder",
-"fast": false
+"fast": false,
+"inst": [
+0,
+8
+]
 },
 {
 "pgn": 127250,
@@ -632,12 +704,20 @@
 {
 "pgn": 127488,
 "name": "Engine Parameters, Rapid Update",
-"fast": false
+"fast": false,
+"inst": [
+0,
+8
+]
 },
 {
 "pgn": 127489,
 "name": "Engine Parameters, Dynamic",
-"fast": true
+"fast": true,
+"inst": [
+0,
+8
+]
 },
 {
 "pgn": 127490,
@@ -652,7 +732,11 @@
 {
 "pgn": 127493,
 "name": "Transmission Parameters, Dynamic",
-"fast": false
+"fast": false,
+"inst": [
+0,
+8
+]
 },
 {
 "pgn": 127494,
@@ -672,12 +756,20 @@
 {
 "pgn": 127497,
 "name": "Trip Parameters, Engine",
-"fast": true
+"fast": true,
+"inst": [
+0,
+8
+]
 },
 {
 "pgn": 127498,
 "name": "Engine Parameters, Static",
-"fast": true
+"fast": true,
+"inst": [
+0,
+8
+]
 },
 {
 "pgn": 127500,
@@ -687,72 +779,128 @@
 {
 "pgn": 127501,
 "name": "Binary Switch Bank Status",
-"fast": false
+"fast": false,
+"inst": [
+0,
+8
+]
 },
 {
 "pgn": 127502,
 "name": "Switch Bank Control",
-"fast": false
+"fast": false,
+"inst": [
+0,
+8
+]
 },
 {
 "pgn": 127503,
 "name": "AC Input Status",
-"fast": true
+"fast": true,
+"inst": [
+0,
+8
+]
 },
 {
 "pgn": 127504,
 "name": "AC Output Status",
-"fast": true
+"fast": true,
+"inst": [
+0,
+8
+]
 },
 {
 "pgn": 127505,
 "name": "Fluid Level",
-"fast": false
+"fast": false,
+"inst": [
+0,
+4
+]
 },
 {
 "pgn": 127506,
 "name": "DC Detailed Status",
-"fast": true
+"fast": true,
+"inst": [
+8,
+8
+]
 },
 {
 "pgn": 127507,
 "name": "Charger Status",
-"fast": true
+"fast": true,
+"inst": [
+0,
+8
+]
 },
 {
 "pgn": 127508,
 "name": "Battery Status",
-"fast": false
+"fast": false,
+"inst": [
+0,
+8
+]
 },
 {
 "pgn": 127509,
 "name": "Inverter Status",
-"fast": true
+"fast": true,
+"inst": [
+0,
+8
+]
 },
 {
 "pgn": 127510,
 "name": "Charger Configuration Status",
-"fast": true
+"fast": true,
+"inst": [
+0,
+8
+]
 },
 {
 "pgn": 127511,
 "name": "Inverter Configuration Status",
-"fast": true
+"fast": true,
+"inst": [
+0,
+8
+]
 },
 {
 "pgn": 127512,
 "name": "AGS Configuration Status",
-"fast": true
+"fast": true,
+"inst": [
+0,
+8
+]
 },
 {
 "pgn": 127513,
 "name": "Battery Configuration Status",
-"fast": true
+"fast": true,
+"inst": [
+0,
+8
+]
 },
 {
 "pgn": 127514,
 "name": "AGS Status",
-"fast": true
+"fast": true,
+"inst": [
+0,
+8
+]
 },
 {
 "pgn": 127744,
@@ -1227,27 +1375,47 @@
 {
 "pgn": 130312,
 "name": "Temperature",
-"fast": false
+"fast": false,
+"inst": [
+8,
+8
+]
 },
 {
 "pgn": 130313,
 "name": "Humidity",
-"fast": false
+"fast": false,
+"inst": [
+8,
+8
+]
 },
 {
 "pgn": 130314,
 "name": "Actual Pressure",
-"fast": false
+"fast": false,
+"inst": [
+8,
+8
+]
 },
 {
 "pgn": 130315,
 "name": "Set Pressure",
-"fast": false
+"fast": false,
+"inst": [
+8,
+8
+]
 },
 {
 "pgn": 130316,
 "name": "Temperature Extended Range",
-"fast": false
+"fast": false,
+"inst": [
+8,
+8
+]
 },
 {
 "pgn": 130320,
@@ -1412,42 +1580,74 @@
 {
 "pgn": 130816,
 "name": "SonicHub: Track  (proprietary)",
-"fast": true
+"fast": true,
+"inst": [
+24,
+4
+]
 },
 {
 "pgn": 130817,
 "name": "Navico: Unknown  (proprietary)",
-"fast": true
+"fast": true,
+"inst": [
+16,
+8
+]
 },
 {
 "pgn": 130818,
 "name": "Maretron: Label  (proprietary)",
-"fast": true
+"fast": true,
+"inst": [
+16,
+8
+]
 },
 {
 "pgn": 130819,
 "name": "Webasto: HVAC Command  (proprietary)",
-"fast": true
+"fast": true,
+"inst": [
+120,
+8
+]
 },
 {
 "pgn": 130820,
 "name": "Fusion: EQ  (proprietary)",
-"fast": true
+"fast": true,
+"inst": [
+120,
+8
+]
 },
 {
 "pgn": 130821,
 "name": "Navico: ASCII Data  (proprietary)",
-"fast": true
+"fast": true,
+"inst": [
+120,
+8
+]
 },
 {
 "pgn": 130822,
 "name": "Navico: Unknown 1  (proprietary)",
-"fast": true
+"fast": true,
+"inst": [
+120,
+8
+]
 },
 {
 "pgn": 130823,
 "name": "Maretron: Proprietary Temperature High Range  (proprietary)",
-"fast": true
+"fast": true,
+"inst": [
+24,
+8
+]
 },
 {
 "pgn": 130824,
@@ -1457,12 +1657,20 @@
 {
 "pgn": 130825,
 "name": "Navico: Unknown 2  (proprietary)",
-"fast": true
+"fast": true,
+"inst": [
+48,
+8
+]
 },
 {
 "pgn": 130826,
 "name": "Maretron: Switch Indicator Status  (proprietary)",
-"fast": true
+"fast": true,
+"inst": [
+16,
+8
+]
 },
 {
 "pgn": 130827,
@@ -1492,7 +1700,11 @@
 {
 "pgn": 130832,
 "name": "Maretron: Vessel Operating Mode  (proprietary)",
-"fast": true
+"fast": true,
+"inst": [
+32,
+8
+]
 },
 {
 "pgn": 130833,
@@ -1512,12 +1724,20 @@
 {
 "pgn": 130836,
 "name": "Maretron: Switch Status Counter  (proprietary)",
-"fast": true
+"fast": true,
+"inst": [
+32,
+8
+]
 },
 {
 "pgn": 130837,
 "name": "Suzuki: Engine Sensor Data  (proprietary)",
-"fast": true
+"fast": true,
+"inst": [
+16,
+8
+]
 },
 {
 "pgn": 130838,
@@ -1532,7 +1752,11 @@
 {
 "pgn": 130840,
 "name": "Maretron: Generic Sensor  (proprietary)",
-"fast": true
+"fast": true,
+"inst": [
+16,
+8
+]
 },
 {
 "pgn": 130841,
@@ -1542,7 +1766,11 @@
 {
 "pgn": 130842,
 "name": "Maretron: Windlass Operating Status  (proprietary)",
-"fast": true
+"fast": true,
+"inst": [
+22,
+4
+]
 },
 {
 "pgn": 130843,
@@ -1622,27 +1850,47 @@
 {
 "pgn": 130900,
 "name": "Xantrex: AC Status  (proprietary)",
-"fast": true
+"fast": true,
+"inst": [
+16,
+8
+]
 },
 {
 "pgn": 130910,
 "name": "Xantrex: DC Source Configuration Status  (proprietary)",
-"fast": true
+"fast": true,
+"inst": [
+16,
+8
+]
 },
 {
 "pgn": 130911,
 "name": "Xantrex: AC Output Configuration Status  (proprietary)",
-"fast": true
+"fast": true,
+"inst": [
+16,
+8
+]
 },
 {
 "pgn": 130912,
 "name": "Xantrex: Charger Configuration Status  (proprietary)",
-"fast": true
+"fast": true,
+"inst": [
+16,
+8
+]
 },
 {
 "pgn": 130913,
 "name": "Xantrex: AC Input Configuration Status  (proprietary)",
-"fast": true
+"fast": true,
+"inst": [
+16,
+8
+]
 },
 {
 "pgn": 130918,

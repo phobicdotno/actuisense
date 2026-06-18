@@ -3,8 +3,11 @@
 Regenerate actuisense/data/pgns.json from canboat's PGN database.
 
 Source: https://raw.githubusercontent.com/canboat/canboat/master/docs/canboat.json
-(Apache-2.0; see CREDITS.md). We keep only PGN number, a human name, and the
-frame type (single vs fast-packet) — just enough to label the RX/TX filter rows.
+(Apache-2.0; see CREDITS.md). We keep PGN number, a human name, the frame type
+(single vs fast-packet), and — when the PGN carries one — the bit position of its
+Instance field, so the bus monitor can split e.g. two engines reporting the same
+PGN into separate rows. That is just enough to label the RX/TX filter rows and to
+group bus traffic by device instance.
 
 Name heuristic: a PGN can have several canboat definitions (generic + vendor
 variants). We prefer a *generic, non-hex-range* description: skip names starting
@@ -39,12 +42,29 @@ def pick_name(candidates):
     return min(names, key=len)
 
 
+def _instance_field(d):
+    """Return [bit_offset, bit_length] of the PGN's Instance field, or None.
+
+    canboat names every instance field with an Id ending in 'instance'
+    (instance, engineInstance, batteryInstance, dataSourceInstance, ...). We take
+    the first one so two devices reporting the same PGN can be told apart by it.
+    """
+    for f in d.get("Fields", []):
+        fid = (f.get("Id") or "").lower()
+        if fid.endswith("instance"):
+            off, length = f.get("BitOffset"), f.get("BitLength")
+            if isinstance(off, int) and isinstance(length, int):
+                return [off, length]
+    return None
+
+
 def main():
     raw = urllib.request.urlopen(URL, timeout=60).read()
     doc = json.loads(raw)
     defs = doc.get("PGNs") or doc.get("pgns") or []
 
     grouped = {}
+    instances = {}
     for d in defs:
         n = d.get("PGN")
         if n is None:
@@ -52,12 +72,18 @@ def main():
         desc = (d.get("Description") or d.get("Id") or "").strip()
         is_fast = "fast" in (d.get("Type") or "").lower()
         grouped.setdefault(n, []).append((desc, is_fast))
+        if n not in instances:
+            inst = _instance_field(d)
+            if inst is not None:
+                instances[n] = inst
 
     rows = []
     for n in sorted(grouped):
         cands = grouped[n]
-        rows.append({"pgn": n, "name": pick_name(cands),
-                     "fast": any(c[1] for c in cands)})
+        row = {"pgn": n, "name": pick_name(cands), "fast": any(c[1] for c in cands)}
+        if n in instances:
+            row["inst"] = instances[n]  # [bit_offset, bit_length] of the Instance field
+        rows.append(row)
 
     bundle = {
         "_source": "canboat docs/canboat.json (Apache-2.0)",

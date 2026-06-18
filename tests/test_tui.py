@@ -264,11 +264,12 @@ def test_footer_shortcuts_are_tab_aware():
             assert vis("quit") is True  # global
             tc.active = "bustab"
             await pilot.pause()
-            assert vis("toggle_rx") is None and vis("commit") is None
+            # False (not None) so Textual drops them from the footer entirely
+            assert vis("toggle_rx") is False and vis("commit") is False
             assert vis("focus_filter") is True  # bus monitor has a filter too
             tc.active = "logtab"
             await pilot.pause()
-            assert vis("toggle_poll") is True and vis("toggle_rx") is None
+            assert vis("toggle_poll") is True and vis("toggle_rx") is False
     _run(scenario)
 
 
@@ -336,4 +337,34 @@ def test_tui_save_then_load_roundtrip(tmp_path):
             # the gateway actually received the enable writes from the load
             assert (PgnList.RX, 60928, True) in gw.calls
             assert (PgnList.TX, 127245, True) in gw.calls
+    _run(scenario)
+
+
+def test_bus_monitor_splits_rows_by_instance():
+    from types import SimpleNamespace
+    from textual.widgets import DataTable
+
+    def f(pgn, src, inst):
+        return SimpleNamespace(pgn=pgn, source=src, timestamp=1.0,
+                               data=bytes([inst, 0, 0, 0, 0, 0, 0, 0]))
+
+    async def scenario():
+        app = ActuiSenseApp(FakeGateway())
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            bt = app.query_one("#bustable", DataTable)
+            # PGN 127488 from one source, four engine instances (2 motors + 2 gensets),
+            # with instance 0 and 1 repeated.
+            for inst in (0, 1, 2, 3, 0, 1):
+                app._bus_push(f(127488, 104, inst))
+            # 126992 System Time has no instance field -> one row regardless of byte 0
+            app._bus_push(f(126992, 104, 0))
+            app._bus_push(f(126992, 104, 9))
+            await pilot.pause()
+            assert bt.row_count == 5  # 4 engine instances + 1 collapsed System Time
+            by_inst = {bt.get_row_at(i)[4]: bt.get_row_at(i) for i in range(bt.row_count)}
+            assert set(by_inst) == {"0", "1", "2", "3", ""}
+            assert by_inst["0"][5] == "2"  # instance 0 counted twice
+            assert by_inst[""][5] == "2"   # System Time collapsed, counted twice
     _run(scenario)

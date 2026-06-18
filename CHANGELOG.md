@@ -3,6 +3,25 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.4.1] - 2026-06-18
+
+### Added
+- **Bus Monitor splits rows by device instance.** Two engines (or two generators)
+  reporting the same PGN from the same source address are now separate rows, keyed by
+  their Instance field, with a new **Inst** column. Instance bit positions come from
+  canboat (62 PGNs: engine, battery, fluid level, AC/DC, temperature, ...), bundled into
+  `data/pgns.json`; `PgnDb.instance()` reads the value from the frame. PGNs without an
+  instance field, or an "unavailable" instance, collapse to one row as before.
+
+### Fixed
+- **WAGO mode no longer shows the gateway-only shortcuts** (`r`/`t`/`b`/Activate/Commit/
+  ...) in the footer. Textual only drops a binding from the footer when `check_action`
+  returns `False` (returning `None` keeps it shown but dimmed), so the tab-aware filter
+  now returns `False` for off-tab actions.
+
+### Docs
+- Note that the gateway path is validated against a real **NGX-1** as well as the NGT-1.
+
 ## [0.4.0] - 2026-06-18
 
 ### Added

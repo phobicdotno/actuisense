@@ -62,9 +62,9 @@ def test_on_connection_chosen_routes_by_kind():
 
 def test_bus_monitor_aggregates_frames(monkeypatch):
     lines = [
-        "(1.000001) can0 19F21803#FFFF7F2701FF0000",  # PGN 127512 src 3
-        "(1.000002) can0 19F21803#0102030405060708",  # same key -> count 2
-        "(1.000003) can0 19F30703#0102030405060708",  # PGN 127751 src 3
+        "(1.000001) can0 19F21803#0188030405060708",  # PGN 127512 src 3, instance 1
+        "(1.000002) can0 19F21803#0199030405060708",  # same pgn/src/instance -> count 2
+        "(1.000003) can0 19F30703#0102030405060708",  # PGN 127751 src 3 (no instance field)
     ]
     monkeypatch.setattr(
         CandumpSource, "over_ssh",
@@ -78,9 +78,9 @@ def test_bus_monitor_aggregates_frames(monkeypatch):
             await app.workers.wait_for_complete()
             await pilot.pause()
             table = app.query_one("#bustable")
-            assert table.row_count == 2          # two distinct (pgn, src) rows
-            assert app._bus_rows["127512:3"] == 2
-            assert app._bus_rows["127751:3"] == 1
+            assert table.row_count == 2          # one (pgn,src,instance) + one no-instance
+            assert app._bus_rows["127512:3:1"] == 2  # keyed by pgn:src:instance now
+            assert app._bus_rows["127751:3:"] == 1   # no instance field -> empty instance
     _run(scenario)
 
 
