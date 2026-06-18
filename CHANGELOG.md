@@ -3,6 +3,16 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.3.8] - 2026-06-18
+
+### Changed
+- Select-all (`R`/`T`/`B`) now **bulk-writes** every PGN in one burst instead of one
+  blocking command per PGN. The old path waited the full response window for each PGN
+  (minutes for hundreds of PGNs) and wrote one Activity Log line each; the new
+  `set_pgns_bulk` fires all Set-PGN frames back-to-back, drains the acks once, and logs a
+  single summary line (`Bulk RX/TX N PGNs -- X enable / Y disable`). Press Activate once
+  after to apply.
+
 ## [0.3.7] - 2026-06-18
 
 ### Changed

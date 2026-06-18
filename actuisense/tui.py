@@ -652,13 +652,15 @@ class ActuiSenseApp(App):
 
     @work(thread=True, group="push")
     def _push_many(self, which: PgnList, items) -> None:
-        """Write a batch of per-PGN enable/disable commands off the UI thread."""
-        for pgn, on in items:
-            try:
-                self.gw.set_pgn(which, pgn, on)
-            except Exception as e:  # noqa: BLE001
-                self.call_from_thread(self.notify, "set_pgn failed: %s" % e, severity="error")
-                return
+        """Bulk-write a batch of enable/disable commands off the UI thread.
+
+        One fire-and-forget burst with a single summary log line, instead of a blocking
+        per-PGN command (which took minutes and flooded the Activity Log for select-all)."""
+        try:
+            self.gw.set_pgns_bulk(which, items)
+        except Exception as e:  # noqa: BLE001
+            self.call_from_thread(self.notify, "bulk set_pgn failed: %s" % e, severity="error")
+            return
         self.call_from_thread(self.render_status)
 
     def action_select_all_rx(self) -> None:

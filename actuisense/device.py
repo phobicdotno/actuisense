@@ -17,7 +17,7 @@ import socket
 import threading
 import time
 from dataclasses import dataclass
-from typing import Callable, Iterable, List, Optional, Sequence
+from typing import Callable, Iterable, List, Optional, Sequence, Tuple
 
 import serial  # pyserial
 
@@ -251,6 +251,34 @@ class Gateway:
             self.activate()
         if commit:
             self.commit_eeprom()
+
+    def set_pgns_bulk(self, which: PgnList, items: Sequence[Tuple[int, bool]],
+                      gap: float = 0.004, drain: float = 0.5) -> None:
+        """Fire many Set-PGN commands back-to-back without waiting for each reply.
+
+        The per-command path (`set_pgn`) blocks the full response window per PGN and
+        logs one line each, so a select-all of hundreds of PGNs takes minutes and floods
+        the Activity Log. This writes every frame with only a tiny inter-frame gap, drains
+        whatever the gateway acks at the end, and emits a SINGLE summary log entry. Call
+        `activate()` once afterwards to apply the lists.
+        """
+        items = list(items)
+        if not items:
+            return
+        en = sum(1 for _, e in items if e)
+        try:
+            with self._lock:
+                self._flush_input()
+                for pgn, enable in items:
+                    self.t.write(proto.cmd_set_pgn(which, pgn, enable))
+                    if gap:
+                        time.sleep(gap)
+                self._collect(drain)  # absorb the trailing acks so they don't bleed into the next read
+        except Exception as e:
+            self._log("Bulk %s %d PGNs" % (which.name, len(items)), "Error", str(e)[:40])
+            raise
+        self._log("Bulk %s %d PGNs" % (which.name, len(items)), "OK",
+                  "%d enable / %d disable" % (en, len(items) - en))
 
     def query_pgn(self, which: PgnList, pgn: int, window: float = 0.5) -> Optional[bool]:
         """Query ONE PGN's enable state with the per-PGN command (0x47 Tx / 0x46 Rx),
