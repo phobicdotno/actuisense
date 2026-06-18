@@ -734,15 +734,37 @@ def run_tui(port: Optional[str] = None, baud: int = 115200) -> int:
     app.last_target = port
     app.last_baud = baud
 
-    # A SIGTERM/SIGHUP kill skips Python cleanup, leaving the terminal in
-    # mouse-reporting mode -- then every mouse move prints as raw escape codes
-    # (e.g. "35;38;28M..."). Turn those signals into a clean interrupt so the
-    # `finally` below runs and restores the terminal.
+    import os
     import signal
     import sys
 
+    def _restore_terminal() -> None:
+        """Put the terminal back to a sane state after the TUI. Covers the cases
+        where Textual's own teardown was skipped (kill, or a stuck worker thread):
+        mouse reporting off, cursor visible, normal cursor keys/keypad, and cooked
+        line mode (so arrow keys stop printing as raw ``^[[A``)."""
+        try:
+            sys.stdout.write(
+                "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?1015l"  # mouse off
+                "\x1b[?25h"   # show cursor
+                "\x1b[?1l"    # normal (not application) cursor keys
+                "\x1b>")      # normal keypad
+            sys.stdout.flush()
+        except Exception:
+            pass
+        try:
+            if os.name == "posix" and sys.stdout.isatty():
+                os.system("stty sane </dev/tty >/dev/tty 2>/dev/null")
+        except Exception:
+            pass
+
+    # A SIGTERM/SIGHUP kill otherwise skips cleanup; ask Textual to exit cleanly
+    # (falls back to an interrupt) so the `finally` below restores the terminal.
     def _signal_exit(_signum, _frame):
-        raise KeyboardInterrupt
+        try:
+            app.exit()
+        except Exception:
+            raise KeyboardInterrupt
 
     _prev = {}
     for _sig_name in ("SIGTERM", "SIGHUP"):
@@ -763,15 +785,18 @@ def run_tui(port: Optional[str] = None, baud: int = 115200) -> int:
             except (ValueError, OSError):
                 pass
         if gw is not None:
-            gw.close()
-        app._stop_bus()
-        # Belt-and-suspenders: ensure mouse reporting is OFF so a kill never
-        # leaves the terminal spewing mouse escape codes (idempotent if Textual
-        # already restored it on a clean exit).
+            try:
+                gw.close()
+            except Exception:
+                pass
         try:
-            sys.stdout.write("\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?1015l")
-            sys.stdout.flush()
+            app._stop_bus()
         except Exception:
             pass
-    return 0
-    return 0
+        _restore_terminal()
+
+    # Textual @work threads doing blocking serial/SSH I/O can keep the interpreter
+    # from exiting (atexit join() hangs, leaving the terminal half-restored and
+    # needing Ctrl-C). The terminal is already restored above, so exit hard.
+    sys.stdout.flush()
+    os._exit(0)

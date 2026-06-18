@@ -3,6 +3,17 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.3.4] - 2026-06-18
+
+### Fixed
+- **Exiting the TUI no longer hangs or leaves the terminal broken.** A Textual
+  worker thread doing blocking serial/SSH I/O could keep the interpreter from
+  exiting (it hung joining the thread at shutdown), leaving the terminal in raw
+  mode -- arrow keys then printed as `^[[A` / `^[[B` and you had to Ctrl-C twice.
+  Now the terminal is fully restored on exit (mouse off, cursor on, normal cursor
+  keys/keypad, `stty sane`) and the process exits hard so a stuck worker can't hang
+  it. SIGTERM/SIGHUP now request a clean Textual shutdown.
+
 ## [0.3.3] - 2026-06-18
 
 ### Changed
