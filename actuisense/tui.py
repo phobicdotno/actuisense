@@ -226,9 +226,9 @@ class ActuiSenseApp(App):
         Binding("r", "toggle_rx", "RX"),
         Binding("t", "toggle_tx", "TX"),
         Binding("b", "toggle_both", "Both"),
-        Binding("space", "toggle_tx", "Toggle TX", show=False),
-        Binding("R", "select_all_rx", "All RX"),   # Shift+R: select/clear all (shown) RX
-        Binding("T", "select_all_tx", "All TX"),   # Shift+T: select/clear all (shown) TX
+        Binding("R", "select_all_rx", "All RX"),    # Shift+R: select/clear all (shown) RX
+        Binding("T", "select_all_tx", "All TX"),    # Shift+T: select/clear all (shown) TX
+        Binding("B", "select_all_both", "All Both"),  # Shift+B: select/clear all (shown) RX+TX
         Binding("a", "activate", "Activate"),
         Binding("c", "commit", "Commit EEPROM"),
         Binding("f5", "reload", "Reload"),
@@ -666,6 +666,41 @@ class ActuiSenseApp(App):
 
     def action_select_all_tx(self) -> None:
         self._select_all(PgnList.TX)
+
+    def action_select_all_both(self) -> None:
+        """Select (or, if every shown PGN already has both on, clear) BOTH RX and TX
+        for every PGN currently shown -- the filtered subset (key: Shift+B)."""
+        if self.gw is None:
+            self.notify("no gateway connected", severity="warning")
+            return
+        pgns = list(self._row_pgn.values())
+        if not pgns:
+            return
+        target = not all(p in self.rx_enabled and p in self.tx_enabled for p in pgns)
+        push_rx, push_tx = [], []
+        for pgn in pgns:
+            in_rx, in_tx = pgn in self.rx_enabled, pgn in self.tx_enabled
+            if target:
+                if not in_rx:
+                    self.rx_enabled.add(pgn); push_rx.append((pgn, True))
+                if not in_tx:
+                    self.tx_enabled.add(pgn); push_tx.append((pgn, True))
+            else:
+                if in_rx:
+                    self.rx_enabled.discard(pgn); push_rx.append((pgn, False))
+                if in_tx:
+                    self.tx_enabled.discard(pgn); push_tx.append((pgn, False))
+        if not (push_rx or push_tx):
+            return
+        self.dirty = True
+        self.refresh_marks()
+        self.render_status()
+        self.set_status("%s RX+TX for %d PGN(s) (writing to gateway…)"
+                        % ("Selected" if target else "Cleared", len(pgns)))
+        if push_rx:
+            self._push_many(PgnList.RX, push_rx)
+        if push_tx:
+            self._push_many(PgnList.TX, push_tx)
 
     def action_activate(self) -> None:
         if self.gw is None:

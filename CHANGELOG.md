@@ -3,6 +3,16 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.3.6] - 2026-06-18
+
+### Added
+- **Shift+B** selects (or, if all already on, clears) **both RX and TX** for every
+  shown PGN at once -- completing the set: `b` both on one PGN, `R`/`T` all-RX/all-TX,
+  `B` all-both. Acts on the filtered subset; writes run off the UI thread.
+
+### Removed
+- The hidden Space-bar TX toggle (an undocumented duplicate of `t`).
+
 ## [0.3.5] - 2026-06-18
 
 ### Changed
