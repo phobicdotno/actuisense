@@ -172,3 +172,40 @@ def test_header_click_sorts_column_asc_then_desc():
             desc = [int(table.get_row_at(i)[0]) for i in range(table.row_count)]
             assert desc == sorted(desc, reverse=True)
     _run(scenario)
+
+
+def test_connection_initial_kind_and_serial_detection():
+    from actuisense.tui import ConnectionScreen
+    assert ConnectionScreen()._looks_serial("/dev/ttyUSB0")
+    assert ConnectionScreen()._looks_serial("COM5")
+    assert not ConnectionScreen()._looks_serial("10.0.0.202")
+    assert not ConnectionScreen()._looks_serial("tcp://host:60002")
+    assert ConnectionScreen(current_target="tcp://10.0.0.5:60002")._initial_kind() == "tcp"
+    assert ConnectionScreen(current_target="/dev/ttyUSB0")._initial_kind() == "serial"
+    assert ConnectionScreen(current_target="10.0.0.202")._initial_kind() == "wago"
+    assert ConnectionScreen()._initial_kind() == "serial"
+
+
+def test_connection_type_switch_drops_mismatched_value():
+    from actuisense.tui import ConnectionScreen
+    from textual.widgets import Input
+
+    async def scenario():
+        gw = FakeGateway()
+        app = ActuiSenseApp(gw)
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            screen = ConnectionScreen(current_target="/dev/ttyUSB0")
+            await app.push_screen(screen)
+            await pilot.pause()
+            target = screen.query_one("#conn-target", Input)
+            assert target.value == "/dev/ttyUSB0"  # serial prefill shown
+            screen._apply_type("tcp")              # switch to TCP gateway
+            await pilot.pause()
+            # the serial path must not linger in the TCP field -> grey placeholder shows
+            assert target.value == ""
+            screen._apply_type("serial")           # back to serial restores a port
+            await pilot.pause()
+            assert target.value == "/dev/ttyUSB0"
+    _run(scenario)

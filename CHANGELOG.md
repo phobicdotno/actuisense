@@ -3,6 +3,16 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.3.10] - 2026-06-18
+
+### Fixed
+- **Connection dialog no longer carries a value across to the wrong Type.** Switching
+  Type (e.g. Serial -> TCP) kept the previous field value (a serial path lingering in
+  the TCP host field). Now the Host field keeps its value only if it fits the selected
+  Type, else falls back to the remembered last target, else clears so the grey
+  placeholder suggestion shows. The dialog also opens with the Type preset to the last
+  connection's kind (tcp/serial/wago) so its address is shown straight away.
+
 ## [0.3.9] - 2026-06-18
 
 ### Added

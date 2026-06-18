@@ -98,6 +98,7 @@ class ConnectionScreen(ModalScreen):
         super().__init__()
         self._current_target = current_target
         self._current_baud = current_baud if current_baud in BAUD_RATES else 115200
+        self._first_real = None  # first detected serial port with a real device
 
     def compose(self) -> ComposeResult:
         ports = list_serial_ports()
@@ -107,6 +108,7 @@ class ConnectionScreen(ModalScreen):
         # (if any) is the connected gateway -- pre-fill the target with it.
         first_real = next((dev for dev, desc in ports
                            if desc.strip() and desc.strip().lower() != "n/a"), None)
+        self._first_real = first_real
         with VerticalScroll(id="conn-dialog"):
             yield Static("Connection", id="conn-title")
 
@@ -114,7 +116,7 @@ class ConnectionScreen(ModalScreen):
             yield Select(
                 [("Serial port", "serial"), ("TCP gateway", "tcp"),
                  ("WAGO PLC (can0)", "wago")],
-                value="serial", allow_blank=False, id="conn-type")
+                value=self._initial_kind(), allow_blank=False, id="conn-type")
 
             # Serial-only: detected ports list.
             with Vertical(id="conn-serial-group", classes="conn-group"):
@@ -161,7 +163,47 @@ class ConnectionScreen(ModalScreen):
         placeholder = {"serial": "/dev/ttyUSB0   •   COM5",
                        "tcp": "tcp://host:60002   •   host:port",
                        "wago": "10.0.0.202   (PLC IP)"}.get(kind, "/dev/ttyUSB0")
-        self.query_one("#conn-target", Input).placeholder = placeholder
+        target = self.query_one("#conn-target", Input)
+        target.placeholder = placeholder
+        # Don't let a value meant for one type linger in another (e.g. a serial path
+        # showing in the TCP field). Keep the current value only if it fits the new
+        # type, else fall back to the remembered last target, else clear it so the
+        # grey placeholder suggestion shows.
+        target.value = self._value_for_kind(kind)
+
+    def _initial_kind(self) -> str:
+        """Default the Type selector to the last connection's kind, so its address is
+        shown on open. last_target is distinguishable: tcp -> 'tcp://...', serial ->
+        a device path, wago -> a bare host/IP."""
+        rem = (self._current_target or "").strip()
+        if rem.startswith("tcp://"):
+            return "tcp"
+        if self._looks_serial(rem):
+            return "serial"
+        if rem:
+            return "wago"  # a remembered bare host/IP only comes from a WAGO connect
+        return "serial"
+
+    @staticmethod
+    def _looks_serial(s: str) -> bool:
+        s = s.strip().lower()
+        return s.startswith("/dev/") or (s.startswith("com") and s[3:].isdigit())
+
+    def _value_for_kind(self, kind: str) -> str:
+        cur = self.query_one("#conn-target", Input).value.strip()
+        remembered = (self._current_target or "").strip()
+        if kind == "serial":
+            if self._looks_serial(cur):
+                return cur
+            if self._looks_serial(remembered):
+                return remembered
+            return self._first_real or ""
+        # tcp / wago want a host or IP, never a serial device path.
+        if cur and not self._looks_serial(cur):
+            return cur
+        if remembered and not self._looks_serial(remembered):
+            return remembered
+        return ""
 
     def _set_result(self, text: str) -> None:
         self.query_one("#conn-result", Static).update(text)
