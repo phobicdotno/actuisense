@@ -3,6 +3,16 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.3.3] - 2026-06-18
+
+### Changed
+- **Connection dialog is now type-aware and scrollable.** It shows only the fields
+  relevant to the selected Type: serial -> detected ports + baud; tcp -> just host;
+  WAGO -> host + SSH login. The WAGO login (username / password / iface) is stacked
+  vertically so all three fields are visible (they were crammed into one row where
+  only the username showed), and the dialog scrolls if taller than the terminal so
+  nothing is clipped.
+
 ## [0.3.2] - 2026-06-18
 
 ### Added

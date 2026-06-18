@@ -27,7 +27,7 @@ from rich.text import Text
 from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import (Button, DataTable, Footer, Header, Input, Label,
                              Select, Static, TabbedContent, TabPane)
@@ -79,9 +79,10 @@ class ConnectionScreen(ModalScreen):
     CSS = """
     ConnectionScreen { align: center middle; }
     #conn-dialog {
-        width: 76; height: auto; padding: 1 2;
+        width: 76; height: auto; max-height: 90%; padding: 1 2;
         border: round $accent; background: $surface;
     }
+    .conn-group { height: auto; }
     #conn-title { text-style: bold; margin-bottom: 1; }
     .conn-label { color: $accent; margin-top: 1; }
     #conn-buttons { height: auto; margin-top: 1; }
@@ -106,7 +107,7 @@ class ConnectionScreen(ModalScreen):
         # (if any) is the connected gateway -- pre-fill the target with it.
         first_real = next((dev for dev, desc in ports
                            if desc.strip() and desc.strip().lower() != "n/a"), None)
-        with Vertical(id="conn-dialog"):
+        with VerticalScroll(id="conn-dialog"):
             yield Static("Connection", id="conn-title")
 
             yield Static("Type", classes="conn-label")
@@ -115,38 +116,57 @@ class ConnectionScreen(ModalScreen):
                  ("WAGO PLC (can0)", "wago")],
                 value="serial", allow_blank=False, id="conn-type")
 
-            yield Static("Detected serial ports", classes="conn-label")
-            yield Select(detected_opts, prompt="(none — type a port/host below)",
-                         id="conn-detected")
+            # Serial-only: detected ports list.
+            with Vertical(id="conn-serial-group", classes="conn-group"):
+                yield Static("Detected serial ports", classes="conn-label")
+                yield Select(detected_opts, prompt="(none — type a port/host below)",
+                             id="conn-detected")
 
-            yield Static("Port / host", classes="conn-label")
+            yield Static("Port / host", classes="conn-label", id="conn-target-label")
             yield Input(
                 value=self._current_target or first_real or "",
-                placeholder="COM5  •  /dev/ttyUSB0  •  tcp://host:60002  •  10.0.0.202",
+                placeholder="/dev/ttyUSB0  •  tcp://host:60002  •  10.0.0.202",
                 id="conn-target")
 
-            yield Static("Speed (baud) — serial only", classes="conn-label")
-            yield Select([(str(b), b) for b in BAUD_RATES],
-                         value=self._current_baud, allow_blank=False, id="conn-baud")
+            # Serial-only: baud rate.
+            with Vertical(id="conn-baud-group", classes="conn-group"):
+                yield Static("Speed (baud)", classes="conn-label")
+                yield Select([(str(b), b) for b in BAUD_RATES],
+                             value=self._current_baud, allow_blank=False, id="conn-baud")
 
-            yield Static("WAGO PLC login (can0 only)", classes="conn-label")
-            with Horizontal():
+            # WAGO-only: SSH login (stacked so every field is visible).
+            with Vertical(id="conn-wago-group", classes="conn-group"):
+                yield Static("WAGO PLC login (can0 only)", classes="conn-label")
                 yield Input(placeholder="username (e.g. root)", id="conn-user")
-                yield Input(placeholder="password", password=True, id="conn-pass")
-                yield Input(value="can0", placeholder="iface", id="conn-iface")
+                yield Input(placeholder="password (e.g. wago)", password=True, id="conn-pass")
+                yield Input(value="can0", placeholder="iface (e.g. can0)", id="conn-iface")
 
             with Horizontal(id="conn-buttons"):
                 yield Button("Connect", id="conn-connect", variant="success")
                 yield Button("Cancel", id="conn-cancel")
             yield Static("", id="conn-result", markup=False)
 
+    def on_mount(self) -> None:
+        self._apply_type(str(self.query_one("#conn-type", Select).value))
+
+    def _apply_type(self, kind: str) -> None:
+        """Show only the fields relevant to the selected connection Type."""
+        self.query_one("#conn-serial-group").display = (kind == "serial")
+        self.query_one("#conn-baud-group").display = (kind == "serial")
+        self.query_one("#conn-wago-group").display = (kind == "wago")
+        label = {"serial": "Serial port", "tcp": "Host (tcp://host:port or host)",
+                 "wago": "PLC host / IP"}.get(kind, "Port / host")
+        self.query_one("#conn-target-label", Static).update(label)
+
     def _set_result(self, text: str) -> None:
         self.query_one("#conn-result", Static).update(text)
 
     def on_select_changed(self, event: Select.Changed) -> None:
-        # Picking a detected port fills the target field.
         if event.select.id == "conn-detected" and event.value is not Select.BLANK:
+            # Picking a detected port fills the target field.
             self.query_one("#conn-target", Input).value = str(event.value)
+        elif event.select.id == "conn-type":
+            self._apply_type(str(event.value))
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "conn-cancel":
