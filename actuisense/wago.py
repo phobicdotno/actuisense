@@ -118,6 +118,13 @@ class CandumpSource:
             if transport is None:  # pragma: no cover — defensive
                 raise WagoError("SSH transport unavailable after connect")
             channel = transport.open_session()
+            # Request a PTY so candump's stdout is a terminal, not a pipe. Without
+            # this, glibc block-buffers stdout (~4-8 KB) when it isn't a tty, so at
+            # NMEA 2000 frame rates the Bus Monitor sees nothing until kilobytes
+            # accumulate, then a burst — it looks stalled/empty. A PTY makes candump
+            # line-buffer, so each frame arrives immediately. Wide width keeps long
+            # `-L` records intact; SIGHUP on channel close stops candump cleanly.
+            channel.get_pty(term="vt100", width=255, height=50)
             channel.exec_command(cmd)
             stdout = channel.makefile("r")
         except WagoError:

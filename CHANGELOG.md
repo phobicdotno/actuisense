@@ -3,6 +3,21 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.4.3] - 2026-06-19
+
+### Fixed
+- **Bus Monitor over can0 now streams in real time.** The remote `candump` was started
+  on a plain SSH channel (no PTY), so glibc block-buffered its stdout (~4-8 KB) and the
+  monitor stayed empty until kilobytes of frames accumulated, then arrived as a burst —
+  it looked stalled at NMEA 2000 rates. The SSH session now requests a PTY
+  (`channel.get_pty`), so candump line-buffers and each frame is delivered immediately.
+
+### Changed
+- The can0 connection type is relabelled **"WAGO PLC / Linux (can0)"** (was "WAGO PLC
+  (can0)") and its dialog text now reflects that any Linux host exposing a SocketCAN
+  interface over SSH works, not just a WAGO PLC (e.g. an Ubuntu box with a candleLight /
+  gs_usb adapter). The internal connection kind is unchanged.
+
 ## [0.4.2] - 2026-06-18
 
 ### Added

@@ -7,11 +7,11 @@ Reader's Hardware Configuration page, with three tabs:
   • Activity Log — a running log of every gateway exchange (line, time, action,
                    result OK/Timeout/NAK, detail), like NMEA Reader's command log,
                    fed by a periodic Get-Operating-Mode poll plus your own actions.
-  • Bus Monitor  — live raw NMEA 2000 traffic read straight off a WAGO PLC's can0
-                   interface over SSH (candump), aggregated per PGN/source.
+  • Bus Monitor  — live raw NMEA 2000 traffic read straight off a WAGO PLC's or any
+                   Linux host's can0 interface over SSH (candump), aggregated per PGN/source.
 
 A Connection dialog (Ctrl+O) picks the source: a serial port + baud, a TCP gateway,
-or a WAGO PLC (username/password → can0). The app can start disconnected and prompt
+or a WAGO PLC / Linux host (username/password → can0). The app can start disconnected and prompt
 for a connection, so no port has to be known up front.
 
 Serial/TCP/SSH I/O blocks, so every gateway call and the bus reader run in Textual
@@ -116,7 +116,7 @@ class ConnectionScreen(ModalScreen):
             yield Static("Type", classes="conn-label")
             yield Select(
                 [("Serial port", "serial"), ("TCP gateway", "tcp"),
-                 ("WAGO PLC (can0)", "wago")],
+                 ("WAGO PLC / Linux (can0)", "wago")],
                 value=self._initial_kind(), allow_blank=False, id="conn-type")
 
             # Serial-only: detected ports list.
@@ -139,9 +139,9 @@ class ConnectionScreen(ModalScreen):
 
             # WAGO-only: SSH login (stacked so every field is visible).
             with Vertical(id="conn-wago-group", classes="conn-group"):
-                yield Static("WAGO PLC login (can0 only)", classes="conn-label")
-                yield Input(placeholder="username (e.g. root)", id="conn-user")
-                yield Input(placeholder="password (e.g. wago)", password=True, id="conn-pass")
+                yield Static("WAGO PLC / Linux login (can0 only)", classes="conn-label")
+                yield Input(placeholder="username (e.g. root, eas)", id="conn-user")
+                yield Input(placeholder="password", password=True, id="conn-pass")
                 yield Input(value="can0", placeholder="iface (e.g. can0)", id="conn-iface")
 
             with Horizontal(id="conn-buttons"):
@@ -159,11 +159,11 @@ class ConnectionScreen(ModalScreen):
         self.query_one("#conn-baud-group").display = (kind == "serial")
         self.query_one("#conn-wago-group").display = (kind == "wago")
         label = {"serial": "Serial port", "tcp": "Host (tcp://host:port or host)",
-                 "wago": "PLC host / IP"}.get(kind, "Port / host")
+                 "wago": "PLC / Linux host / IP"}.get(kind, "Port / host")
         self.query_one("#conn-target-label", Static).update(label)
         placeholder = {"serial": "/dev/ttyUSB0   •   COM5",
                        "tcp": "tcp://host:60002   •   host:port",
-                       "wago": "10.0.0.202   (PLC IP)"}.get(kind, "/dev/ttyUSB0")
+                       "wago": "10.0.0.202 (PLC)   •   192.168.11.105 (Linux)"}.get(kind, "/dev/ttyUSB0")
         target = self.query_one("#conn-target", Input)
         target.placeholder = placeholder
         # Don't let a value meant for one type linger in another (e.g. a serial path
