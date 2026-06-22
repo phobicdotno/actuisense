@@ -416,6 +416,29 @@ def parse_mdt_response(frame: "Frame") -> Optional[Tuple[int, int]]:
     return frame.payload[0], frame.payload[1]
 
 
+def parse_product_info_strings(data: bytes) -> List[str]:
+    """Extract the printable ASCII fields from a PRODUCT_INFO_N2K (0x41) data block.
+
+    The block is an NMEA 2000 PGN 126996 Product Information payload: two u16s then
+    four fixed 32-byte ASCII fields -- Model ID / description, Software version, Model
+    version, Serial code -- padded by Actisense with 0x00/0xFF. We split on
+    non-printable bytes and keep runs of >=2 printable chars, preserving order:
+    [description, software version, model version, serial]. The software-version field
+    carries the firmware version (e.g. "x.xxx, 3.032")."""
+    out: List[str] = []
+    cur = bytearray()
+    for b in data:
+        if 0x20 <= b <= 0x7E:
+            cur.append(b)
+        else:
+            if len(cur) >= 2:
+                out.append(cur.decode("ascii"))
+            cur = bytearray()
+    if len(cur) >= 2:
+        out.append(cur.decode("ascii"))
+    return out
+
+
 # Known firmware CRCs, observed from real Actisense Toolkit `*-bstft.log` transfers.
 # The Actisense CRC algorithm is not yet recovered (a single capture, then two,
 # weren't enough for reveng), so for the files we HAVE seen we look the CRC up by

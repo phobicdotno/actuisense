@@ -54,6 +54,9 @@ class FakeGateway:
         self.calls.append(("fw", filename, len(data), crc))
         return crc if crc is not None else 0xDEADBEEF
 
+    def get_product_info(self):
+        return ["NGX-1: Dual Gateway [Core]", "x.xxx, 3.068", "NGX-1-USB [C]", "321326"]
+
     def close(self):
         pass
 
@@ -445,4 +448,19 @@ def test_firmware_tab_flashes_via_worker(tmp_path):
             assert fw[0][3] == 0xC2340641            # crc override passed through
             assert app.poll_paused is False          # polling restored after the transfer
             assert app.query_one("#fw-progress", ProgressBar).total == 500
+    _run(scenario)
+
+
+def test_firmware_tab_reads_current_fw_on_connect():
+    from textual.widgets import Static
+
+    async def scenario():
+        gw = FakeGateway()
+        app = ActuiSenseApp(gw)
+        async with app.run_test() as pilot:
+            app._stop_gw_bus()
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            cur = app.query_one("#fw-current", Static)
+            assert "3.068" in str(cur.render())   # firmware version shown
     _run(scenario)

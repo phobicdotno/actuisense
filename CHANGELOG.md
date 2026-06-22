@@ -3,6 +3,17 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.5.2] - 2026-06-22
+
+### Added
+- **TUI Firmware tab: "Browse…" file picker** — a modal `DirectoryTree` (filtered to
+  directories + `.zip`) to pick the firmware file instead of typing the path.
+- **TUI Firmware tab: current firmware readout** — the gateway's installed version is
+  read from N2K Product Information (PGN 126996) and shown as
+  "current firmware: <version> • <description> • S/N <serial>", auto-populated on
+  connect and refreshable with a **Read current** button. New
+  `protocol.parse_product_info_strings()` and `Gateway.get_product_info()`.
+
 ## [0.5.1] - 2026-06-22
 
 ### Added

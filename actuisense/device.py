@@ -382,6 +382,13 @@ class Gateway:
         frames = self.command(proto.cmd_simple(op), want_op=int(op), action="Query %s" % op.name)
         return self._data(frames[0]) if frames else b""
 
+    def get_product_info(self) -> List[str]:
+        """Return the gateway's N2K Product Information strings
+        [description, software/firmware version, model version, serial], or [] if no reply.
+        Read-only; used to show the currently-installed firmware."""
+        data = self.raw_query(Op.PRODUCT_INFO_N2K)
+        return proto.parse_product_info_strings(data) if data else []
+
     # -- firmware update (BstFt) --------------------------------------------
 
     def _await_mdt(self, subtype: int, timeout: float) -> bool:

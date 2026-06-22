@@ -173,3 +173,16 @@ def test_push_firmware_unknown_file_uses_placeholder_crc():
     dev = _FakeDevice()
     crc = Gateway(dev).push_firmware(data, "mystery.zip")   # crc=None, name not in table
     assert crc == zlib.crc32(data) & 0xFFFFFFFF
+
+
+def test_parse_product_info_strings():
+    from actuisense.protocol import parse_product_info_strings
+    def field(s): return s.encode("ascii") + b"\xff" * (32 - len(s))
+    data = (b"\x11\x00\x00\x00"
+            + field("NGX-1: Dual Gateway [Core]") + field("x.xxx, 3.032")
+            + field("NGX-1-USB [C]") + field("321326") + b"\x02\x02")
+    s = parse_product_info_strings(data)
+    assert s[0] == "NGX-1: Dual Gateway [Core]"
+    assert s[1] == "x.xxx, 3.032"
+    assert s[2] == "NGX-1-USB [C]"
+    assert s[3] == "321326"

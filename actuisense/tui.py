@@ -30,8 +30,9 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
-from textual.widgets import (Button, DataTable, Footer, Header, Input, Label,
-                             ProgressBar, Select, Static, TabbedContent, TabPane)
+from textual.widgets import (Button, DataTable, DirectoryTree, Footer, Header,
+                             Input, Label, ProgressBar, Select, Static,
+                             TabbedContent, TabPane)
 
 from . import __version__
 from .pgndb import PgnDb
@@ -295,6 +296,48 @@ class FilenameScreen(ModalScreen):
         self.dismiss(None)
 
 
+class _ZipTree(DirectoryTree):
+    """DirectoryTree that only shows directories and .zip files."""
+
+    def filter_paths(self, paths):
+        return [p for p in paths
+                if (p.is_dir() and not p.name.startswith(".")) or p.suffix.lower() == ".zip"]
+
+
+class FilePickerScreen(ModalScreen):
+    """Browse for a firmware .zip. Dismisses with the chosen path, or None on cancel."""
+
+    CSS = """
+    FilePickerScreen { align: center middle; }
+    #fp-dialog { width: 84; height: 30; padding: 1 2; border: round $accent; background: $surface; }
+    #fp-title { text-style: bold; margin-bottom: 1; }
+    #fp-tree { height: 1fr; border: round $panel; }
+    #fp-buttons { height: auto; margin-top: 1; }
+    """
+
+    BINDINGS = [Binding("escape", "cancel", "Cancel")]
+
+    def __init__(self, start_dir: str) -> None:
+        super().__init__()
+        self._start = start_dir
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="fp-dialog"):
+            yield Static("Select a firmware .zip   (Esc to cancel)", id="fp-title")
+            yield _ZipTree(self._start, id="fp-tree")
+            with Horizontal(id="fp-buttons"):
+                yield Button("Cancel", id="fp-cancel")
+
+    def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected) -> None:
+        self.dismiss(str(event.path))
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        self.dismiss(None)
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
 class ActuiSenseApp(App):
     TITLE = "AcTuiSense"
     SUB_TITLE = "v%s   •   2026 © Karstein Kvistad" % __version__
@@ -420,10 +463,13 @@ class ActuiSenseApp(App):
                         "CRC override the device may reject the image (safe; nothing is "
                         "flashed). Paste the CRC from a Toolkit *-bstft.log to guarantee accept.",
                         id="fw-help")
+                    yield Static("current firmware: —", id="fw-current")
                     yield Input(placeholder="path to firmware .zip", id="fw-path")
                     yield Input(placeholder="CRC override, e.g. 0xC2340641 (optional)", id="fw-crc")
                     with Horizontal(id="fw-actions"):
+                        yield Button("Browse…", id="fw-browse")
                         yield Button("Flash firmware", id="fw-flash", variant="warning")
+                        yield Button("Read current", id="fw-read")
                     yield ProgressBar(id="fw-progress", total=100, show_eta=True)
                     yield Static("", id="fw-status")
         yield Footer()
@@ -605,6 +651,7 @@ class ActuiSenseApp(App):
         self.dirty = False
         self.call_from_thread(self.refresh_marks)
         self.call_from_thread(self.render_status)
+        self.do_read_fw()   # populate the Firmware tab's "current firmware" line
 
     @work(group="poll", thread=True)
     def poll(self) -> None:
@@ -746,6 +793,51 @@ class ActuiSenseApp(App):
         finally:
             self.poll_paused = False
             self._start_gw_bus()
+
+    def _browse_fw(self) -> None:
+        """Open a .zip file picker and drop the chosen path into the fw-path field."""
+        from pathlib import Path
+        start = None
+        cur = self.query_one("#fw-path", Input).value.strip()
+        if cur:
+            p = Path(cur).expanduser()
+            if p.parent.is_dir():
+                start = p.parent
+        if start is None:
+            dl = Path.home() / "Downloads"
+            start = dl if dl.is_dir() else Path.home()
+        self.push_screen(FilePickerScreen(str(start)), self._fw_browsed)
+
+    def _fw_browsed(self, path) -> None:
+        if path:
+            self.query_one("#fw-path", Input).value = path
+
+    def _read_current_fw(self) -> None:
+        if self.gw is None:
+            self.notify("Connect to a gateway first (Ctrl+O).", severity="warning")
+            return
+        self._fw_current("current firmware: reading…")
+        self.do_read_fw()
+
+    def _fw_current(self, text: str) -> None:
+        self.query_one("#fw-current", Static).update(text)
+
+    @work(thread=True, group="fwread")
+    def do_read_fw(self) -> None:
+        if self.gw is None:
+            return
+        try:
+            info = self.gw.get_product_info()
+        except Exception:  # noqa: BLE001
+            info = []
+        if info:
+            desc = info[0]
+            ver = info[1] if len(info) > 1 else "?"
+            sn = info[3] if len(info) > 3 else (info[-1] if info else "?")
+            txt = "current firmware: %s  •  %s  •  S/N %s" % (ver, desc, sn)
+        else:
+            txt = "current firmware: (no response)"
+        self.call_from_thread(self._fw_current, txt)
 
     # -- bus monitor (WAGO / can0) -----------------------------------------
 
@@ -1202,7 +1294,8 @@ class ActuiSenseApp(App):
          "connect": self.action_connection, "save": self.action_save_lists,
          "load": self.action_load_lists,
          "poll": self.action_toggle_poll, "clearlog": self.action_clear_log,
-         "fw-flash": self._start_flash,
+         "fw-flash": self._start_flash, "fw-browse": self._browse_fw,
+         "fw-read": self._read_current_fw,
          }.get(event.button.id, lambda: None)()
 
 
