@@ -3,6 +3,19 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.5.6] - 2026-06-22
+
+### Changed
+- **Firmware tab re-laid-out** into clean button + field rows: help text on top, then
+  `[Browse…] <path>`, the CRC override field, `[Read current] <current firmware>`, and
+  `[Flash firmware] <progress bar>`. Each action button is left-aligned with its
+  field/data to the right.
+
+### Fixed
+- **Duplicate CRC-autofill notification**: the TUI showed two toasts (one without the
+  value, one with). Now a single "CRC auto-filled: 0x…" toast, and the "no CRC override"
+  warning only fires when the file is genuinely unknown.
+
 ## [0.5.5] - 2026-06-22
 
 ### Changed

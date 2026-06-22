@@ -375,9 +375,12 @@ class ActuiSenseApp(App):
     #actions Button, #logactions Button { margin: 0 1 0 0; }
     #fw-pane { padding: 0 1; }
     #fw-help { margin-bottom: 1; }
-    #fw-actions { height: 3; align: left middle; margin-top: 1; }
-    #fw-actions Button { margin: 0 1 0 0; }
-    #fw-progress { width: 1fr; margin: 1 0; }
+    .fw-row { height: 3; align: left middle; margin-bottom: 1; }
+    .fw-btn { width: 18; margin-right: 1; }
+    #fw-path { width: 1fr; }
+    #fw-crc { width: 1fr; margin-bottom: 1; }
+    #fw-current { width: 1fr; }
+    #fw-progress { width: 1fr; }
     #fw-status { padding: 0 1; }
     """
 
@@ -486,23 +489,19 @@ class ActuiSenseApp(App):
                     yield Button("Clear log", id="clearlog")
             with TabPane("Firmware", id="fwtab"):
                 with Vertical(id="fw-pane"):
-                    yield Static(
-                        "Update NGX-1 / WGX-1 firmware over BstFt. Download the firmware "
-                        ".zip from actisense.com — do NOT unzip it.\n"
-                        "The gateway must be listed in Convert mode at this baud. Do NOT "
-                        "remove power until its LED returns to the normal pulse.\n"
-                        "CRC note: the Actisense CRC algorithm is unconfirmed — without a "
-                        "CRC override the device may reject the image (safe; nothing is "
-                        "flashed). Paste the CRC from a Toolkit *-bstft.log to guarantee accept.",
-                        id="fw-help")
-                    yield Static("current firmware: —", id="fw-current")
-                    yield Input(placeholder="path to firmware .zip", id="fw-path")
-                    yield Input(placeholder="CRC override, e.g. 0xC2340641 (optional)", id="fw-crc")
-                    with Horizontal(id="fw-actions"):
-                        yield Button("Browse…", id="fw-browse")
-                        yield Button("Flash firmware", id="fw-flash", variant="warning")
-                        yield Button("Read current", id="fw-read")
-                    yield ProgressBar(id="fw-progress", total=100, show_eta=True)
+                    yield Static("Update NGX-1 / WGX-1 firmware over BstFt — no Toolkit "
+                                 "needed. Don't remove power until the LED settles.", id="fw-help")
+                    with Horizontal(classes="fw-row"):
+                        yield Button("Browse…", id="fw-browse", classes="fw-btn")
+                        yield Input(placeholder="path to firmware .zip", id="fw-path")
+                    yield Input(placeholder="CRC override — e.g. 0xC2340641 "
+                                "(optional; auto-filled for known files)", id="fw-crc")
+                    with Horizontal(classes="fw-row"):
+                        yield Button("Read current", id="fw-read", classes="fw-btn")
+                        yield Static("current firmware: —", id="fw-current")
+                    with Horizontal(classes="fw-row"):
+                        yield Button("Flash firmware", id="fw-flash", variant="warning", classes="fw-btn")
+                        yield ProgressBar(id="fw-progress", total=100, show_eta=True)
                     yield Static("", id="fw-status")
         yield Footer()
 
@@ -768,12 +767,11 @@ class ActuiSenseApp(App):
             self.notify("Enter the path to the firmware .zip.", severity="warning")
             return
         crc_str = self.query_one("#fw-crc", Input).value.strip()
-        if not crc_str:
-            if known_firmware_crc(os.path.basename(path)) is not None:
-                self.notify("CRC will be auto-filled from the filename.")
-            else:
-                self.notify("No CRC override — the device may reject the image "
-                            "(CRC algorithm unconfirmed).", severity="warning")
+        # Only warn when truly unknown; if a known CRC will auto-fill, do_firmware
+        # emits the single "auto-filled: 0x..." notification (avoid a duplicate here).
+        if not crc_str and known_firmware_crc(os.path.basename(path)) is None:
+            self.notify("No CRC override — the device may reject the image "
+                        "(CRC algorithm unconfirmed).", severity="warning")
         self._fw_status("flashing… do not remove power")
         self.do_firmware(path, crc_str)
 
