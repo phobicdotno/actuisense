@@ -416,7 +416,11 @@ class Gateway:
         which is safe, nothing is flashed). Holds the transport lock for the whole transfer.
         """
         size = len(data)
-        crc = proto.firmware_crc(data) if crc is None else (crc & 0xFFFFFFFF)
+        if crc is None:
+            crc = proto.known_firmware_crc(filename, size)   # auto-fill for files we've seen
+        if crc is None:
+            crc = proto.firmware_crc(data)                   # placeholder (unconfirmed algorithm)
+        crc &= 0xFFFFFFFF
         paused = [False]
 
         def _drain(timeout: float) -> None:

@@ -20,7 +20,7 @@ from typing import List, Optional
 from . import __version__
 from .device import Gateway, GatewayError, open_transport
 from .pgndb import PgnDb
-from .protocol import OperatingMode, PgnList
+from .protocol import OperatingMode, PgnList, known_firmware_crc
 
 _WHICH = {"rx": PgnList.RX, "tx": PgnList.TX}
 _MODE = {"filter": OperatingMode.FILTER, "rxall": OperatingMode.RX_ALL}
@@ -252,11 +252,16 @@ def cmd_fw(gw: Gateway, zip_path: str, crc: Optional[int], assume_yes: bool) -> 
         return 2
     name = os.path.basename(zip_path)
     size = len(data)
+    crc_src = "override" if crc is not None else None
+    if crc is None:
+        crc = known_firmware_crc(name, size)
+        if crc is not None:
+            crc_src = "auto-filled from filename"
     print("Firmware update")
     print("  gateway : %s" % gw.name)
     print("  file    : %s  (%d bytes)" % (name, size))
     if crc is not None:
-        print("  crc     : 0x%08X (override)" % crc)
+        print("  crc     : 0x%08X (%s)" % (crc, crc_src))
     else:
         print("  crc     : placeholder (Actisense CRC algorithm unconfirmed -- the device may")
         print("            reject the image; pass --crc 0x... from a Toolkit log to guarantee accept)")

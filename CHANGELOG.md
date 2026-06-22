@@ -3,6 +3,22 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.5.1] - 2026-06-22
+
+### Added
+- **Filename-based CRC auto-fill** for firmware files whose CRC we've observed from a
+  Toolkit `*-bstft.log`. `actuisense fw <file>` and the TUI Firmware tab now look the
+  CRC up by (filename, size) and use it automatically — no `--crc` needed — for the
+  known files: `NGX-1-Release-v3.068.1986.zip` → `0xC2340641` and
+  `NGX-1-Release-v3.032.1743-Beta.zip` → `0x9469623D`. Unknown files still fall back to
+  the placeholder (a mismatch is safely rejected by the device).
+
+### Notes
+- The Actisense CRC-32 algorithm is still unrecovered: it's a non-standard polynomial,
+  and a reveng search over our two captured (file → CRC) pairs reports "give 4 or more
+  samples". Two more distinct firmware transfers (logged) would let reveng solve it, at
+  which point the lookup table is replaced by a computed CRC for any file.
+
 ## [0.5.0] - 2026-06-22
 
 ### Added

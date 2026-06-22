@@ -35,7 +35,7 @@ from textual.widgets import (Button, DataTable, Footer, Header, Input, Label,
 
 from . import __version__
 from .pgndb import PgnDb
-from .protocol import OperatingMode, PgnList
+from .protocol import OperatingMode, PgnList, known_firmware_crc
 
 CHECK = "[X]"
 UNCHECK = "[ ]"
@@ -675,14 +675,18 @@ class ActuiSenseApp(App):
         if self.gw is None:
             self.notify("Connect to a gateway first (Ctrl+O).", severity="warning")
             return
+        import os
         path = self.query_one("#fw-path", Input).value.strip()
         if not path:
             self.notify("Enter the path to the firmware .zip.", severity="warning")
             return
         crc_str = self.query_one("#fw-crc", Input).value.strip()
         if not crc_str:
-            self.notify("No CRC override — the device may reject the image "
-                        "(CRC algorithm unconfirmed).", severity="warning")
+            if known_firmware_crc(os.path.basename(path)) is not None:
+                self.notify("CRC will be auto-filled from the filename.")
+            else:
+                self.notify("No CRC override — the device may reject the image "
+                            "(CRC algorithm unconfirmed).", severity="warning")
         self._fw_status("flashing… do not remove power")
         self.do_firmware(path, crc_str)
 
@@ -714,6 +718,10 @@ class ActuiSenseApp(App):
             self.call_from_thread(self.notify, "bad CRC value: %r" % crc_str, severity="error")
             self.call_from_thread(self._fw_status, "error: bad CRC value")
             return
+        if crc is None:
+            crc = known_firmware_crc(name, size)
+            if crc is not None:
+                self.call_from_thread(self.notify, "CRC auto-filled from filename: 0x%08X" % crc)
         # free the transport for the multi-minute transfer
         self.poll_paused = True
         self._stop_gw_bus()

@@ -416,6 +416,28 @@ def parse_mdt_response(frame: "Frame") -> Optional[Tuple[int, int]]:
     return frame.payload[0], frame.payload[1]
 
 
+# Known firmware CRCs, observed from real Actisense Toolkit `*-bstft.log` transfers.
+# The Actisense CRC algorithm is not yet recovered (a single capture, then two,
+# weren't enough for reveng), so for the files we HAVE seen we look the CRC up by
+# (filename, size) and skip the placeholder. Keyed on both so a renamed/different
+# file of the same name never gets a wrong CRC applied.
+_KNOWN_FW_CRC = {
+    ("NGX-1-Release-v3.068.1986.zip", 2101402): 0xC2340641,
+    ("NGX-1-Release-v3.032.1743-Beta.zip", 1972072): 0x9469623D,
+}
+
+
+def known_firmware_crc(filename: str, size: Optional[int] = None) -> Optional[int]:
+    """Return the known MDT_END CRC for a firmware file by basename (+ size if given),
+    or None if we haven't observed it. Used to auto-fill the CRC for files whose value
+    we've captured, while the CRC algorithm remains unconfirmed."""
+    base = filename.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+    for (fn, sz), crc in _KNOWN_FW_CRC.items():
+        if fn == base and (size is None or size == sz):
+            return crc
+    return None
+
+
 def firmware_crc(data: bytes) -> int:
     """End-of-transfer checksum for MDT_END.
 

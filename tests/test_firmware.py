@@ -149,3 +149,27 @@ def test_push_firmware_streams_whole_file_and_acks():
 def test_push_firmware_default_crc_is_placeholder_zlib():
     data = b"hello firmware" * 20
     assert proto.firmware_crc(data) == zlib.crc32(data) & 0xFFFFFFFF
+
+
+def test_known_firmware_crc_lookup():
+    from actuisense.protocol import known_firmware_crc
+    assert known_firmware_crc("NGX-1-Release-v3.068.1986.zip", 2101402) == 0xC2340641
+    assert known_firmware_crc("NGX-1-Release-v3.032.1743-Beta.zip", 1972072) == 0x9469623D
+    # path is stripped to basename (Windows or POSIX)
+    assert known_firmware_crc(r"C:\Users\x\NGX-1-Release-v3.068.1986.zip", 2101402) == 0xC2340641
+    assert known_firmware_crc("/dl/NGX-1-Release-v3.032.1743-Beta.zip", 1972072) == 0x9469623D
+    # wrong size for a known name -> no match (different file, never apply a wrong CRC)
+    assert known_firmware_crc("NGX-1-Release-v3.068.1986.zip", 999) is None
+    # unknown file -> None
+    assert known_firmware_crc("something-else.zip", 2101402) is None
+    # size omitted -> match by basename alone
+    assert known_firmware_crc("NGX-1-Release-v3.068.1986.zip") == 0xC2340641
+
+
+def test_push_firmware_unknown_file_uses_placeholder_crc():
+    import zlib
+    from actuisense.device import Gateway
+    data = b"not a known firmware" * 30
+    dev = _FakeDevice()
+    crc = Gateway(dev).push_firmware(data, "mystery.zip")   # crc=None, name not in table
+    assert crc == zlib.crc32(data) & 0xFFFFFFFF
