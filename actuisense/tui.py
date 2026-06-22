@@ -373,6 +373,12 @@ class ActuiSenseApp(App):
     DataTable { height: 1fr; }
     #actions, #logactions { height: 3; align: left middle; }
     #actions Button, #logactions Button { margin: 0 1 0 0; }
+    #fw-pane { padding: 0 1; }
+    #fw-help { margin-bottom: 1; }
+    #fw-actions { height: 3; align: left middle; margin-top: 1; }
+    #fw-actions Button { margin: 0 1 0 0; }
+    #fw-progress { width: 1fr; margin: 1 0; }
+    #fw-status { padding: 0 1; }
     """
 
     BINDINGS = [

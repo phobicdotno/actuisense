@@ -3,6 +3,13 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.5.5] - 2026-06-22
+
+### Changed
+- **Firmware tab layout**: a blank line above the Browse / Flash / Read button row, and
+  the progress bar is now full-width (spans the remaining space to the right) with a
+  line of padding above/below — a clearer, bigger update readout.
+
 ## [0.5.4] - 2026-06-22
 
 ### Added
