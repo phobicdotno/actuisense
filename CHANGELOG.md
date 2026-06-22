@@ -3,6 +3,30 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.5.0] - 2026-06-22
+
+### Added
+- **Firmware update (`actuisense fw`) for the NGX-1 / WGX-1.** Pushes an Actisense
+  firmware `.zip` to the gateway over the reverse-engineered **BstFt** protocol, with a
+  live progress bar (percent, KB, rate, ETA), XON/XOFF flow control, and a confirmation
+  prompt. The whole `.zip` is streamed in 200-byte windows; the device unwraps and
+  decrypts the inner `.actp` itself.
+  ```bash
+  actuisense fw NGX-1-Release-v3.068.1986.zip -p COM5 --crc 0xC2340641
+  ```
+  Protocol: `MDT_START` (size + filename) → `0xC1` DATA frames → `MDT_END` (size + CRC32),
+  fully documented in `docs/reverse-engineering/bstft/`. New `protocol.build_mdt_start/
+  build_mdt_data/build_mdt_end/parse_ft/parse_mdt_response` and `Gateway.push_firmware`,
+  all covered by golden-vector tests against a real Toolkit transfer (no hardware needed).
+
+### Known limitation
+- The end-of-transfer **CRC32 algorithm is not yet confirmed** — the value Toolkit logs
+  matches no catalogued CRC-32 over the file, and the polynomial can't be recovered from a
+  single capture. Until a second different-file transfer is captured to solve it,
+  `firmware_crc()` returns a placeholder (plain zlib) and the device will *reject* a
+  mismatched image (safe — nothing is flashed). Pass the known CRC via `--crc 0x…` (from a
+  Toolkit `*-bstft.log`) for a guaranteed accept.
+
 ## [0.4.3] - 2026-06-19
 
 ### Fixed

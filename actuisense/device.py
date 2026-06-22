@@ -381,3 +381,97 @@ class Gateway:
         """Send a no-arg query and return the first matching response's data bytes."""
         frames = self.command(proto.cmd_simple(op), want_op=int(op), action="Query %s" % op.name)
         return self._data(frames[0]) if frames else b""
+
+    # -- firmware update (BstFt) --------------------------------------------
+
+    def _await_mdt(self, subtype: int, timeout: float) -> bool:
+        """Read until a 0xA9 MDT response of `subtype` arrives; return its OK status."""
+        end = time.monotonic() + timeout
+        while time.monotonic() < end:
+            chunk = self.t.read(4096)
+            if not chunk:
+                continue
+            for f in self._dec.feed(chunk):
+                r = proto.parse_mdt_response(f)
+                if r is not None and r[0] == subtype:
+                    return r[1] == 0x01
+        return False
+
+    def push_firmware(self, data: bytes, filename: str, *, crc: Optional[int] = None,
+                      chunk: int = proto.FW_CHUNK,
+                      progress: Optional[Callable[[int, int], None]] = None,
+                      start_timeout: float = 10.0, end_timeout: float = 120.0,
+                      drain_every: int = 16000, xoff_wait: float = 15.0) -> int:
+        """Push an Actisense firmware .zip to the gateway over BstFt (NGX-1 / WGX-1).
+
+        `data` is the raw .zip bytes, `filename` its basename. The whole zip is streamed;
+        the device unwraps/decrypts the inner .actp itself. `crc` overrides the MDT_END
+        checksum (pass a known value for a guaranteed accept; default uses the placeholder
+        `protocol.firmware_crc`). `progress(sent, total)` is called as chunks go out.
+
+        Honours the device's XON/XOFF flow control: chunks stream back-to-back, input is
+        drained every `drain_every` bytes, and on XOFF the sender blocks for XON (up to
+        `xoff_wait`s). Returns the CRC that was sent. Raises GatewayError if the device
+        does not acknowledge START or END (END failure usually means a CRC/image reject --
+        which is safe, nothing is flashed). Holds the transport lock for the whole transfer.
+        """
+        size = len(data)
+        crc = proto.firmware_crc(data) if crc is None else (crc & 0xFFFFFFFF)
+        paused = [False]
+
+        def _drain(timeout: float) -> None:
+            end = time.monotonic() + timeout
+            first = True
+            while first or time.monotonic() < end:
+                first = False
+                blob = self.t.read(4096)
+                if not blob:
+                    return
+                for f in self._dec.feed(blob):
+                    ft = proto.parse_ft(f)
+                    if ft is None:
+                        continue
+                    sub = ft[0]
+                    if sub == int(proto.Ft.XOFF):
+                        paused[0] = True
+                    elif sub == int(proto.Ft.XON):
+                        paused[0] = False
+
+        try:
+            with self._lock:
+                self._flush_input(0.2)
+                self.t.write(proto.build_mdt_start(size, filename, chunk=chunk))
+                if not self._await_mdt(0x00, start_timeout):
+                    raise GatewayError(
+                        "no MDT start response -- check the device is connected, listed in "
+                        "Convert mode, and the baud matches")
+                offset = 0
+                since_drain = 0
+                while offset < size:
+                    if paused[0]:
+                        deadline = time.monotonic() + xoff_wait
+                        while paused[0] and time.monotonic() < deadline:
+                            _drain(0.2)
+                        since_drain = 0
+                        continue
+                    self.t.write(proto.build_mdt_data(offset, data[offset:offset + chunk]))
+                    offset += chunk
+                    since_drain += chunk
+                    if progress is not None:
+                        progress(min(offset, size), size)
+                    if since_drain >= drain_every:
+                        since_drain = 0
+                        _drain(0.0)  # one non-waiting read to catch XOFF before the buffer overruns
+                self.t.write(proto.build_mdt_end(size, crc))
+                if not self._await_mdt(0x01, end_timeout):
+                    raise GatewayError(
+                        "no MDT end/OK -- the device may have rejected the image "
+                        "(CRC mismatch is safe; nothing was flashed)")
+        except GatewayError:
+            self._log("Firmware push %s" % filename, "Error", "no ack")
+            raise
+        except Exception as e:
+            self._log("Firmware push %s" % filename, "Error", str(e)[:40])
+            raise
+        self._log("Firmware push %s" % filename, "OK", "%d bytes crc=0x%08X" % (size, crc))
+        return crc

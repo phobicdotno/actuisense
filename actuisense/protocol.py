@@ -42,6 +42,12 @@ N2K_MSG_SEND = 0x94
 ACMD_RECV = 0xA0
 ACMD_SEND = 0xA1
 
+# BstFt (BST File Transfer) -- firmware update on the NGX-1 / WGX-1.
+# Dedicated command bytes (NOT in the 0xA0/0xA1 ACMD space). Reverse-engineered from a
+# captured Toolkit transfer; see docs/reverse-engineering/bstft/PROTOCOL.md.
+MDT = 0xA9   # multi-data-transfer control: Start/End requests + Start/End responses
+FT = 0xC1    # file-transfer frame: DATA + flow control (ACK/XON/XOFF), see `Ft`
+
 
 class Op(IntEnum):
     """Gateway command opcodes (payload[0] when command byte is ACMD_SEND/RECV)."""
@@ -343,3 +349,83 @@ def parse_n2k_recv(frame: Frame) -> Optional[N2kMessage]:
     ln = p[10]
     return N2kMessage(priority=p[0], pgn=pgn, dest=p[4], source=p[5],
                       timestamp=ts, data=bytes(p[11:11 + ln]))
+
+
+# ---- BstFt firmware transfer (NGX-1 / WGX-1) -------------------------------
+#
+# The whole firmware ".zip" is streamed to the gateway, which unwraps and decrypts
+# the inner ".actp" itself. Sequence:
+#   MDT_START (size + filename)  -> RX 0xA9 Start/OK
+#   stream 0xC1 DATA frames, 200-byte chunks, honouring XOFF/XON flow control
+#   MDT_END (size + CRC32)       -> RX 0xA9 End/OK
+# All frames ride the standard BST framing above. Fully documented in
+# docs/reverse-engineering/bstft/PROTOCOL.md.
+
+FW_CHUNK = 200   # 0xC8: the data-chunk / window size MDT_START advertises
+
+
+class Ft(IntEnum):
+    """Subtype (payload[0]) of a 0xC1 FT frame."""
+    DATA = 0x00   # payload: [00][00 00][offset LE32][00][<=200 data bytes]
+    ACK = 0x01    # payload: [01][00 00][ackIndex LE32][01 00 00 00 00]
+    XON = 0x10    # resume sending
+    XOFF = 0x11   # pause sending (device buffer full)
+
+
+def build_mdt_start(filesize: int, filename: str, chunk: int = FW_CHUNK) -> bytes:
+    """MDT_START (cmd 0xA9): announce a transfer. Header bytes are replayed verbatim
+    from a captured Toolkit transfer with only the size and filename substituted."""
+    name = filename.encode("ascii", "replace")
+    head = (bytes((0x00, 0x00, 0x44)) + bytes(11) + bytes((chunk & 0xFF,))
+            + (filesize & 0xFFFFFFFF).to_bytes(4, "little")
+            + bytes((0x00, 0x20, 0x00, 0x02, 0x11, 0x00)))
+    return build_frame(MDT, head + name)
+
+
+def build_mdt_data(offset: int, chunk_bytes: bytes) -> bytes:
+    """One DATA frame (cmd 0xC1, subtype 0x00): file offset + a chunk of <=200 bytes."""
+    payload = (bytes((int(Ft.DATA), 0x00, 0x00)) + (offset & 0xFFFFFFFF).to_bytes(4, "little")
+               + bytes((0x00,)) + bytes(chunk_bytes))
+    return build_frame(FT, payload)
+
+
+def build_mdt_end(filesize: int, crc32: int) -> bytes:
+    """MDT_END (cmd 0xA9): finalize with the total size and the file CRC32."""
+    payload = (bytes((0x01,)) + bytes(13)
+               + (filesize & 0xFFFFFFFF).to_bytes(4, "little")
+               + (crc32 & 0xFFFFFFFF).to_bytes(4, "little"))
+    return build_frame(MDT, payload)
+
+
+def parse_ft(frame: "Frame") -> Optional[Tuple[int, int]]:
+    """For a 0xC1 FT frame return (subtype, index LE32 at payload[3:7]); else None.
+    index is the file offset (DATA), the acknowledged byte count (ACK), or the
+    position (XON/XOFF)."""
+    if frame.command != FT or len(frame.payload) < 7:
+        return None
+    p = frame.payload
+    index = p[3] | (p[4] << 8) | (p[5] << 16) | (p[6] << 24)
+    return p[0], index
+
+
+def parse_mdt_response(frame: "Frame") -> Optional[Tuple[int, int]]:
+    """For a 0xA9 MDT response return (subtype, status): subtype 0x00=Start / 0x01=End,
+    status 0x01=OK. Returns None for non-MDT frames."""
+    if frame.command != MDT or len(frame.payload) < 2:
+        return None
+    return frame.payload[0], frame.payload[1]
+
+
+def firmware_crc(data: bytes) -> int:
+    """End-of-transfer checksum for MDT_END.
+
+    WARNING: Actisense uses a NON-STANDARD CRC-32 here. The value logged by Toolkit
+    for the v3.068 zip (0xC2340641) matches no catalogued CRC-32 variant over the
+    file, and the polynomial cannot be recovered from a single (data, crc) pair.
+    Until a second transfer of a different file is captured to solve the parameters,
+    this returns the plain zlib CRC-32 as a PLACEHOLDER -- the device will reject the
+    image on a CRC mismatch (which is safe: a bad CRC is not flashed). For a guaranteed
+    accept today, pass the known CRC explicitly (e.g. from a Toolkit *-bstft.log).
+    """
+    import zlib
+    return zlib.crc32(data) & 0xFFFFFFFF

@@ -87,6 +87,7 @@ actuisense enable  tx 127512 127514 127751 -p /dev/ttyUSB0 --commit
 actuisense disable rx 130306 -p /dev/ttyUSB0
 actuisense mode rxall  -p /dev/ttyUSB0           # or: filter
 actuisense list tx     -p /dev/ttyUSB0
+actuisense fw NGX-1-Release-v3.068.1986.zip -p COM5 --crc 0xC2340641   # NGX-1/WGX-1 firmware update
 ```
 
 ## Settings coverage
@@ -103,6 +104,7 @@ actuisense list tx     -p /dev/ttyUSB0
 | Activity log of every exchange (+ live poll) | — | Activity Log tab | line/time/action/result/detail; `p` pauses polling |
 | Choose connection (serial/baud, TCP, WAGO) | `-p` / `monitor` | `Ctrl+O` | serial port auto-detect; start disconnected |
 | Live can0 bus monitor (via WAGO PLC SSH) | `monitor` | Bus Monitor tab | read-only `candump`; per-PGN/source aggregation |
+| Firmware update (NGX-1 / WGX-1) | `fw` | — | BstFt transfer with progress bar; whole `.zip` streamed, device decrypts the `.actp`; see `docs/reverse-engineering/bstft/` |
 
 Deliberately **not** wired up yet: serial/CAN baud change, NMEA 0183 P-code, and
 duplicate-filtering — these can disrupt the link, and their payloads are not

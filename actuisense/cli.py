@@ -12,7 +12,9 @@ Command-line interface. Scriptable counterpart to the TUI:
 from __future__ import annotations
 
 import argparse
+import os
 import sys
+import time
 from typing import List, Optional
 
 from . import __version__
@@ -74,6 +76,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_raw = sub.add_parser("raw", help="dump raw gateway diagnostic queries (read-only, hex)")
     _add_conn(p_raw)
+
+    p_fw = sub.add_parser("fw", help="update gateway firmware from an Actisense .zip (NGX-1/WGX-1)")
+    p_fw.add_argument("zipfile", help="firmware .zip downloaded from actisense.com (do NOT unzip)")
+    _add_conn(p_fw)
+    p_fw.add_argument("--crc", help="end-of-transfer CRC32 override, e.g. 0xC2340641 "
+                                    "(from a Toolkit *-bstft.log; needed until the CRC algorithm is confirmed)")
+    p_fw.add_argument("-y", "--yes", action="store_true", help="skip the confirmation prompt")
 
     p_tui = sub.add_parser("tui", help="launch the full-screen terminal UI")
     _add_conn(p_tui, required=False)  # no -p: start disconnected, pick via Connection dialog
@@ -204,6 +213,70 @@ def cmd_raw(gw: Gateway) -> int:
     return 0
 
 
+class _ProgressBar:
+    """A self-contained carriage-return progress bar (no external deps)."""
+
+    def __init__(self, total: int, width: int = 32) -> None:
+        self.total = total
+        self.width = width
+        self._t0 = time.monotonic()
+        self._last_draw = 0.0
+
+    def __call__(self, done: int, total: int) -> None:
+        now = time.monotonic()
+        final = done >= total
+        if not final and (now - self._last_draw) < 0.1:
+            return  # throttle to ~10 redraws/sec
+        self._last_draw = now
+        pct = (done / total) if total else 1.0
+        filled = int(self.width * pct)
+        bar = "#" * filled + "-" * (self.width - filled)
+        elapsed = now - self._t0
+        rate = done / elapsed if elapsed > 0 else 0.0
+        eta = (total - done) / rate if rate > 0 and not final else 0.0
+        sys.stderr.write("\r  [%s] %5.1f%%  %d/%d KB  %5.1f KB/s  ETA %3ds  "
+                         % (bar, pct * 100, done // 1024, total // 1024, rate / 1024, int(eta)))
+        sys.stderr.flush()
+        if final:
+            sys.stderr.write("\n")
+            sys.stderr.flush()
+
+
+def cmd_fw(gw: Gateway, zip_path: str, crc: Optional[int], assume_yes: bool) -> int:
+    """Push an Actisense firmware .zip to the connected gateway (NGX-1/WGX-1) over BstFt."""
+    try:
+        with open(zip_path, "rb") as f:
+            data = f.read()
+    except OSError as e:
+        print("error: cannot read %s: %s" % (zip_path, e), file=sys.stderr)
+        return 2
+    name = os.path.basename(zip_path)
+    size = len(data)
+    print("Firmware update")
+    print("  gateway : %s" % gw.name)
+    print("  file    : %s  (%d bytes)" % (name, size))
+    if crc is not None:
+        print("  crc     : 0x%08X (override)" % crc)
+    else:
+        print("  crc     : placeholder (Actisense CRC algorithm unconfirmed -- the device may")
+        print("            reject the image; pass --crc 0x... from a Toolkit log to guarantee accept)")
+    print("  WARNING : do NOT remove power or disconnect until the gateway's LED returns to")
+    print("            its normal pulse. The device must be listed in Convert mode at this baud.")
+    if not assume_yes:
+        try:
+            if input("Proceed with the flash? [y/N] ").strip().lower() not in ("y", "yes"):
+                print("Aborted.")
+                return 1
+        except (EOFError, KeyboardInterrupt):
+            print("\nAborted.")
+            return 1
+    bar = _ProgressBar(size)
+    sent_crc = gw.push_firmware(data, name, crc=crc, progress=bar)
+    print("Done. Sent %d bytes, crc=0x%08X. The gateway is applying the update -- "
+          "wait for its LED to return to normal." % (size, sent_crc))
+    return 0
+
+
 def cmd_monitor(db: PgnDb, host: str, user: str, password: str, iface: str, count: int) -> int:
     """SSH into a WAGO PLC, run candump on `iface`, and print decoded N2K frames.
 
@@ -268,6 +341,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                 return cmd_load(gw, db, args.file, args.commit)
             if args.cmd == "raw":
                 return cmd_raw(gw)
+            if args.cmd == "fw":
+                crc = int(args.crc, 0) if args.crc else None
+                return cmd_fw(gw, args.zipfile, crc, args.yes)
     except GatewayError as e:
         print("gateway error: %s" % e, file=sys.stderr)
         return 1
