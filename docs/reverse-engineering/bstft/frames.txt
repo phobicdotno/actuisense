@@ -22,3 +22,11 @@ Mode: Local (direct BST)  Target address: 0
 [+478.401s] TX  MDT_END  [22]  01 00 00 00 00 00 00 00 00 00 00 00 00 00 9A 10 20 00 41 06 34 C2
 [+478.462s] RX  BST MDT End  [14]  A9 0C 01 01 3B 00 2E E7 04 00 00 00 00 00
 [+479.407s] COMPLETE  bytes=2101402  elapsed=478.421s  CRC=0xC2340641
+
+## MDT_DATA frame (TX) — from raw HHD COM5 capture (not in Toolkit's own log)
+# C1 <len=D0=208> [subtype 00=DATA][00 00][offset LE32][flag 00][200-byte .zip chunk] crc
+# offset steps by 200; first chunk begins 50 4b 03 04 = "PK" (ZIP local-file header)
+#0  c1 d0 00 00 00 00 00 00 00 00 50 4b 03 04 ...   offset=0     (zip starts: PK..)
+#1  c1 d0 00 00 00 c8 00 00 00 00 a6 ...            offset=200
+#2  c1 d0 00 00 00 90 01 00 00 00 7c ...            offset=400
+#6  c1 d0 00 00 00 58 02 00 00 00 71 ...            offset=600
