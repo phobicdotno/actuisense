@@ -3,6 +3,15 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.5.3] - 2026-06-22
+
+### Added
+- **Convert operating mode** (`OperatingMode.CONVERT = 0x04`), confirmed by sniffing
+  NMEA Reader's mode dropdown (`A1 11 04 00`). `actuisense mode convert` now sets the
+  NGX-1 into NMEA 0183↔2000 conversion mode directly — no NMEA Reader / power-cycle
+  needed — and the TUI mode cycle (`m`) now rotates Filter → Receive-All → Convert.
+  (Full map: Filter/"Transfer Normal" = 1, Receive-All = 2, Convert = 4.)
+
 ## [0.5.2] - 2026-06-22
 
 ### Added

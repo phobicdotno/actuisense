@@ -1260,8 +1260,12 @@ class ActuiSenseApp(App):
         if self.gw is None:
             self.notify("no gateway connected", severity="warning")
             return
-        nxt = OperatingMode.FILTER if self.mode == OperatingMode.RX_ALL else OperatingMode.RX_ALL
-        self.do_set_mode(nxt)
+        order = [OperatingMode.FILTER, OperatingMode.RX_ALL, OperatingMode.CONVERT]
+        try:
+            i = order.index(self.mode)
+        except ValueError:
+            i = -1
+        self.do_set_mode(order[(i + 1) % len(order)])
 
     def action_focus_filter(self) -> None:
         wid = "#busfilter" if self._active_tab() == "bustab" else "#filter"

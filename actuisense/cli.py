@@ -23,7 +23,8 @@ from .pgndb import PgnDb
 from .protocol import OperatingMode, PgnList, known_firmware_crc
 
 _WHICH = {"rx": PgnList.RX, "tx": PgnList.TX}
-_MODE = {"filter": OperatingMode.FILTER, "rxall": OperatingMode.RX_ALL}
+_MODE = {"filter": OperatingMode.FILTER, "rxall": OperatingMode.RX_ALL,
+         "convert": OperatingMode.CONVERT}
 
 
 def _add_conn(sp: argparse.ArgumentParser, required: bool = True) -> None:
@@ -48,7 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_info = sub.add_parser("info", help="show hardware/operating mode and the Rx/Tx PGN lists")
     _add_conn(p_info)
 
-    p_mode = sub.add_parser("mode", help="set operating mode (filter | rxall)")
+    p_mode = sub.add_parser("mode", help="set operating mode (filter | rxall | convert)")
     p_mode.add_argument("mode", choices=_MODE.keys())
     _add_conn(p_mode)
     p_mode.add_argument("--commit", action="store_true", help="persist to EEPROM")

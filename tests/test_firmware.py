@@ -186,3 +186,11 @@ def test_parse_product_info_strings():
     assert s[1] == "x.xxx, 3.032"
     assert s[2] == "NGX-1-USB [C]"
     assert s[3] == "321326"
+
+
+def test_set_operating_mode_convert_golden():
+    # Sniffed from NMEA Reader's "Convert" dropdown: A1 11 04 00
+    f = _one(proto.cmd_set_operating_mode(proto.OperatingMode.CONVERT))
+    assert f.command == proto.ACMD_SEND
+    assert f.payload == bytes((0x11, 0x04, 0x00))
+    assert int(proto.OperatingMode.CONVERT) == 4

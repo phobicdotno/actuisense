@@ -92,8 +92,10 @@ class Op(IntEnum):
 
 
 class OperatingMode(IntEnum):
-    FILTER = 1   # apply the Rx PGN enable list
-    RX_ALL = 2   # receive every PGN, ignore the Rx list
+    FILTER = 1    # apply the Rx PGN enable list        (NMEA Reader: "Transfer Normal")
+    RX_ALL = 2    # receive every PGN, ignore the list  (NMEA Reader: "Transfer Receive All")
+    CONVERT = 4   # NMEA 0183 <-> NMEA 2000 conversion  (NMEA Reader: "Convert"); value
+                  # confirmed by sniffing NMEA Reader's mode dropdown (A1 11 04 00)
 
 
 class PgnList(IntEnum):
