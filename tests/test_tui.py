@@ -464,3 +464,32 @@ def test_firmware_tab_reads_current_fw_on_connect():
             cur = app.query_one("#fw-current", Static)
             assert "3.068" in str(cur.render())   # firmware version shown
     _run(scenario)
+
+
+def test_busload_meter():
+    from actuisense.tui import _BusLoad
+    m = _BusLoad(window=3.0)
+    assert m.load() == 0.0
+    for _ in range(100):       # 100 single-frame (8-byte) messages
+        m.add(8)
+    assert 0 < m.load() <= 100
+    # a fast-packet message (28 bytes) counts as more than one CAN frame
+    m2 = _BusLoad()
+    m2.add(28)
+    assert m2._ev[0][1] > _BusLoad.BITS_PER_FRAME
+
+
+def test_status_line_shows_bus_load():
+    from textual.widgets import Label
+
+    async def scenario():
+        gw = FakeGateway()
+        app = ActuiSenseApp(gw)
+        async with app.run_test() as pilot:
+            app._stop_gw_bus()
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            app.render_status()
+            await pilot.pause()
+            assert "N2K bus" in str(app.query_one("#status", Label).render())
+    _run(scenario)

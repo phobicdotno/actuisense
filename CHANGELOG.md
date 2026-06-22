@@ -3,6 +3,15 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.5.4] - 2026-06-22
+
+### Added
+- **NMEA 2000 bus-load indicator** in the TUI status bar ("N2K bus ~X%"), like NMEA
+  Reader's. Estimated from the gateway's forwarded N2K stream (CAN frame count per
+  message at ~128 bits/extended frame over a rolling 3 s window, as a fraction of the
+  250 kbit/s bus); updates ~1×/s. Works for both a connected gateway and the WAGO can0
+  Bus Monitor.
+
 ## [0.5.3] - 2026-06-22
 
 ### Added

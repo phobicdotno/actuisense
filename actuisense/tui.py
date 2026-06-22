@@ -338,6 +338,31 @@ class FilePickerScreen(ModalScreen):
         self.dismiss(None)
 
 
+class _BusLoad:
+    """Estimate NMEA 2000 bus load (%) from observed traffic, like NMEA Reader's
+    status-bar indicator. Each N2K message is mapped to its CAN frame count (single
+    frame for <=8 data bytes, fast-packet otherwise) at ~128 bits/extended frame, summed
+    over a rolling window and expressed as a fraction of the 250 kbit/s bus. Approximate
+    (it's derived from the gateway's forwarded stream, not a hardware counter)."""
+
+    BITRATE = 250000.0
+    BITS_PER_FRAME = 128   # extended (29-bit) CAN frame incl. overhead, ~nominal
+
+    def __init__(self, window: float = 3.0) -> None:
+        self.window = window
+        self._ev = []   # (monotonic_time, bits); only ever touched on the UI thread
+
+    def add(self, data_len: int) -> None:
+        frames = 1 if data_len <= 8 else 1 + data_len // 7   # +1 first fast-packet frame
+        self._ev.append((time.monotonic(), frames * self.BITS_PER_FRAME))
+
+    def load(self) -> float:
+        cut = time.monotonic() - self.window
+        self._ev = [(t, b) for (t, b) in self._ev if t >= cut]
+        total = sum(b for _, b in self._ev)
+        return min(100.0, 100.0 * total / (self.BITRATE * self.window))
+
+
 class ActuiSenseApp(App):
     TITLE = "AcTuiSense"
     SUB_TITLE = "v%s   •   2026 © Karstein Kvistad" % __version__
@@ -399,6 +424,7 @@ class ActuiSenseApp(App):
         # Bus monitor state (fed by WAGO can0 OR the gateway's 0x93 N2K stream).
         self._bus_source = None
         self._gw_bus_on = False  # gateway N2K reader running
+        self._busload = _BusLoad()  # estimated NMEA 2000 bus load (%)
         self._bus_rows = {}   # key "pgn:src" -> running count
         self._bus_data = {}   # key -> (ts, pgn, name, src, cnt, hexdata) for repopulation
         self._bus_shown = set()  # keys currently displayed (after the bus filter)
@@ -479,6 +505,7 @@ class ActuiSenseApp(App):
             self.gw.set_log_callback(self._on_gw_log)
         self.populate_table("")
         self.set_interval(POLL_INTERVAL, self.poll)
+        self.set_interval(1.0, self._busload_tick)   # smooth N2K bus-load readout
         self._update_tabs()
         if self.gw is not None:
             self.connect()
@@ -592,16 +619,23 @@ class ActuiSenseApp(App):
     def set_status(self, text: str) -> None:
         self.query_one("#status", Label).update(text)
 
+    def _busload_tick(self) -> None:
+        if self.gw is not None or self._bus_source is not None:
+            self.render_status()
+
     def render_status(self) -> None:
+        load = "   N2K bus ~%.0f%%" % self._busload.load()
         if self.gw is None:
             bus = self._bus_source.name if self._bus_source is not None else None
-            self.set_status("bus monitor: %s" % bus if bus else
-                            "not connected — press Ctrl+O")
+            if bus:
+                self.set_status("bus monitor: %s%s" % (bus, load))
+            else:
+                self.set_status("not connected — press Ctrl+O")
             return
         mode = self.mode.name if self.mode else "?"
         flags = ("  ●UNSAVED" if self.dirty else "") + ("  ‖poll paused" if self.poll_paused else "")
-        self.set_status("%s   mode=%s   RX:%d  TX:%d%s"
-                        % (self.gw.name, mode, len(self.rx_enabled), len(self.tx_enabled), flags))
+        self.set_status("%s   mode=%s   RX:%d  TX:%d%s%s"
+                        % (self.gw.name, mode, len(self.rx_enabled), len(self.tx_enabled), flags, load))
 
     def _on_gw_log(self, entry) -> None:
         # called from a worker thread -> marshal to the UI thread
@@ -888,6 +922,10 @@ class ActuiSenseApp(App):
             time.sleep(0.02)
 
     def _bus_push(self, frame) -> None:
+        try:
+            self._busload.add(len(frame.data))   # feed the bus-load estimate (UI thread)
+        except Exception:
+            pass
         try:
             table = self.query_one("#bustable", DataTable)
         except Exception:
