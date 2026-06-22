@@ -47,6 +47,13 @@ class FakeGateway:
     def commit_eeprom(self):
         self.calls.append("commit")
 
+    def push_firmware(self, data, filename, *, crc=None, progress=None, **kw):
+        if progress is not None:
+            progress(len(data) // 2, len(data))
+            progress(len(data), len(data))
+        self.calls.append(("fw", filename, len(data), crc))
+        return crc if crc is not None else 0xDEADBEEF
+
     def close(self):
         pass
 
@@ -405,4 +412,37 @@ def test_gateway_n2k_stream_feeds_bus_monitor():
             app._stop_gw_bus()
             await pilot.pause()
             assert bt.row_count == 2  # two engine instances split into two rows
+    _run(scenario)
+
+
+def test_firmware_tab_flashes_via_worker(tmp_path):
+    from textual.widgets import Input, ProgressBar, TabbedContent
+
+    async def scenario():
+        zip_path = tmp_path / "NGX-1-Release-vX.zip"
+        zip_path.write_bytes(b"PK\x03\x04" + bytes(496))  # 500 bytes total
+        gw = FakeGateway()
+        app = ActuiSenseApp(gw)
+        async with app.run_test() as pilot:
+            app._stop_gw_bus()
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            # Firmware tab is present and selectable when a gateway is connected
+            tc = app.query_one(TabbedContent)
+            app.action_firmware()
+            await pilot.pause()
+            assert tc.active == "fwtab"
+            # drive the flash through the worker
+            app.query_one("#fw-path", Input).value = str(zip_path)
+            app.query_one("#fw-crc", Input).value = "0xC2340641"
+            app._start_flash()
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            fw = [c for c in gw.calls if isinstance(c, tuple) and c and c[0] == "fw"]
+            assert fw, "push_firmware was not called"
+            assert fw[0][1] == zip_path.name        # filename basename
+            assert fw[0][2] == 500                   # size streamed
+            assert fw[0][3] == 0xC2340641            # crc override passed through
+            assert app.poll_paused is False          # polling restored after the transfer
+            assert app.query_one("#fw-progress", ProgressBar).total == 500
     _run(scenario)

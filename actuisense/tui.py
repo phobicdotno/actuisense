@@ -31,7 +31,7 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import (Button, DataTable, Footer, Header, Input, Label,
-                             Select, Static, TabbedContent, TabPane)
+                             ProgressBar, Select, Static, TabbedContent, TabPane)
 
 from . import __version__
 from .pgndb import PgnDb
@@ -323,6 +323,7 @@ class ActuiSenseApp(App):
         Binding("p", "toggle_poll", "Pause poll"),
         Binding("ctrl+o", "connection", "Connection"),
         Binding("ctrl+f", "focus_filter", "Filter"),
+        Binding("u", "firmware", "Firmware"),
         Binding("q", "quit", "Quit"),
     ]
 
@@ -408,6 +409,23 @@ class ActuiSenseApp(App):
                 with Horizontal(id="logactions"):
                     yield Button("Pause polling (p)", id="poll")
                     yield Button("Clear log", id="clearlog")
+            with TabPane("Firmware", id="fwtab"):
+                with Vertical(id="fw-pane"):
+                    yield Static(
+                        "Update NGX-1 / WGX-1 firmware over BstFt. Download the firmware "
+                        ".zip from actisense.com — do NOT unzip it.\n"
+                        "The gateway must be listed in Convert mode at this baud. Do NOT "
+                        "remove power until its LED returns to the normal pulse.\n"
+                        "CRC note: the Actisense CRC algorithm is unconfirmed — without a "
+                        "CRC override the device may reject the image (safe; nothing is "
+                        "flashed). Paste the CRC from a Toolkit *-bstft.log to guarantee accept.",
+                        id="fw-help")
+                    yield Input(placeholder="path to firmware .zip", id="fw-path")
+                    yield Input(placeholder="CRC override, e.g. 0xC2340641 (optional)", id="fw-crc")
+                    with Horizontal(id="fw-actions"):
+                        yield Button("Flash firmware", id="fw-flash", variant="warning")
+                    yield ProgressBar(id="fw-progress", total=100, show_eta=True)
+                    yield Static("", id="fw-status")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -463,15 +481,18 @@ class ActuiSenseApp(App):
             tc.show_tab("bustab")
             tc.hide_tab("filtertab")
             tc.hide_tab("logtab")
+            tc.hide_tab("fwtab")
             tc.active = "bustab"
         elif gw:                     # Actisense gateway: all tabs; Bus Monitor is fed
             tc.show_tab("filtertab")  # by the gateway's own 0x93 N2K stream
             tc.show_tab("logtab")
             tc.show_tab("bustab")
+            tc.show_tab("fwtab")      # firmware update needs a gateway
         else:                        # nothing connected yet
             tc.show_tab("filtertab")
             tc.show_tab("bustab")
             tc.show_tab("logtab")
+            tc.hide_tab("fwtab")
         self.refresh_bindings()
 
     # -- PGN table ----------------------------------------------------------
@@ -638,6 +659,85 @@ class ActuiSenseApp(App):
             self.call_from_thread(self.notify, "Operating mode -> %s" % mode.name)
         except Exception as e:  # noqa: BLE001
             self.call_from_thread(self.notify, "mode change failed: %s" % e, severity="error")
+
+    # -- firmware update (BstFt) -------------------------------------------
+
+    def action_firmware(self) -> None:
+        """Switch to the Firmware tab and focus the path field."""
+        try:
+            self.query_one(TabbedContent).active = "fwtab"
+            self.query_one("#fw-path", Input).focus()
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _start_flash(self) -> None:
+        """Validate inputs on the UI thread, then kick off the firmware worker."""
+        if self.gw is None:
+            self.notify("Connect to a gateway first (Ctrl+O).", severity="warning")
+            return
+        path = self.query_one("#fw-path", Input).value.strip()
+        if not path:
+            self.notify("Enter the path to the firmware .zip.", severity="warning")
+            return
+        crc_str = self.query_one("#fw-crc", Input).value.strip()
+        if not crc_str:
+            self.notify("No CRC override — the device may reject the image "
+                        "(CRC algorithm unconfirmed).", severity="warning")
+        self._fw_status("flashing… do not remove power")
+        self.do_firmware(path, crc_str)
+
+    def _fw_set_total(self, total: int) -> None:
+        self.query_one("#fw-progress", ProgressBar).update(total=total, progress=0)
+
+    def _fw_set_progress(self, done: int, total: int) -> None:
+        self.query_one("#fw-progress", ProgressBar).update(progress=done)
+        self.query_one("#fw-status", Static).update("%d / %d KB" % (done // 1024, total // 1024))
+
+    def _fw_status(self, text: str) -> None:
+        self.query_one("#fw-status", Static).update(text)
+
+    @work(thread=True, exclusive=True, group="fw")
+    def do_firmware(self, path: str, crc_str: str) -> None:
+        import os
+        try:
+            with open(path, "rb") as f:
+                data = f.read()
+        except OSError as e:
+            self.call_from_thread(self.notify, "cannot read %s: %s" % (path, e), severity="error")
+            self.call_from_thread(self._fw_status, "error: cannot read file")
+            return
+        name = os.path.basename(path)
+        size = len(data)
+        try:
+            crc = int(crc_str, 0) if crc_str else None
+        except ValueError:
+            self.call_from_thread(self.notify, "bad CRC value: %r" % crc_str, severity="error")
+            self.call_from_thread(self._fw_status, "error: bad CRC value")
+            return
+        # free the transport for the multi-minute transfer
+        self.poll_paused = True
+        self._stop_gw_bus()
+        self.call_from_thread(self._fw_set_total, size)
+        last = [0.0]
+
+        def prog(done: int, total: int) -> None:
+            now = time.monotonic()
+            if done < total and (now - last[0]) < 0.1:
+                return
+            last[0] = now
+            self.call_from_thread(self._fw_set_progress, done, total)
+
+        try:
+            sent = self.gw.push_firmware(data, name, crc=crc, progress=prog)
+            self.call_from_thread(self.notify, "Firmware sent (%d bytes, crc=0x%08X). "
+                                  "Wait for the gateway LED to return to normal." % (size, sent))
+            self.call_from_thread(self._fw_status, "done — %d bytes, crc=0x%08X" % (size, sent))
+        except Exception as e:  # noqa: BLE001
+            self.call_from_thread(self.notify, "firmware update failed: %s" % e, severity="error")
+            self.call_from_thread(self._fw_status, "FAILED: %s" % e)
+        finally:
+            self.poll_paused = False
+            self._start_gw_bus()
 
     # -- bus monitor (WAGO / can0) -----------------------------------------
 
@@ -1094,6 +1194,7 @@ class ActuiSenseApp(App):
          "connect": self.action_connection, "save": self.action_save_lists,
          "load": self.action_load_lists,
          "poll": self.action_toggle_poll, "clearlog": self.action_clear_log,
+         "fw-flash": self._start_flash,
          }.get(event.button.id, lambda: None)()
 
 

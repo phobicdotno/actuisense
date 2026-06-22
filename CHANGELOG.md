@@ -18,6 +18,9 @@ versions are `MAJOR.MINOR.PATCH`.
   fully documented in `docs/reverse-engineering/bstft/`. New `protocol.build_mdt_start/
   build_mdt_data/build_mdt_end/parse_ft/parse_mdt_response` and `Gateway.push_firmware`,
   all covered by golden-vector tests against a real Toolkit transfer (no hardware needed).
+- **Firmware tab in the TUI** (its own top tab, `u` to jump to it): path + optional CRC
+  fields, a Flash button, and a live `ProgressBar`. The transfer runs on a worker thread
+  with polling paused for the duration; progress and result are shown inline.
 
 ### Known limitation
 - The end-of-transfer **CRC32 algorithm is not yet confirmed** — the value Toolkit logs
