@@ -15,6 +15,13 @@ command log:
 
 ![AcTuiSense activity log tab](docs/screenshot-log.svg)
 
+**Firmware tab** — update **NGX-1 / WGX-1** firmware over the reverse-engineered
+**BstFt** protocol, no Actisense Toolkit required: read the currently-installed version,
+**Browse…** for the `.zip`, and watch a live progress bar while the whole archive
+streams to the gateway (which decrypts the inner `.actp` itself):
+
+![AcTuiSense firmware tab](docs/firmware-tab.png)
+
 > Validated end-to-end against a real **Actisense NGT-1** and **NGX-1** — reading the
 > operating mode and Rx/Tx enable lists, toggling per-PGN filters, activating, and
 > committing to EEPROM.
@@ -85,16 +92,36 @@ Read-only: it never writes to the bus or the gateway. Needs the `wago` extra
 actuisense info        -p /dev/ttyUSB0           # hardware + operating mode + lists
 actuisense enable  tx 127512 127514 127751 -p /dev/ttyUSB0 --commit
 actuisense disable rx 130306 -p /dev/ttyUSB0
-actuisense mode rxall  -p /dev/ttyUSB0           # or: filter
+actuisense mode rxall  -p /dev/ttyUSB0           # filter | rxall | convert
+actuisense mode convert -p COM5                  # NMEA 0183<->2000 conversion mode
 actuisense list tx     -p /dev/ttyUSB0
-actuisense fw NGX-1-Release-v3.068.1986.zip -p COM5 --crc 0xC2340641   # NGX-1/WGX-1 firmware update
+actuisense fw NGX-1-Release-v3.068.1986.zip -p COM5   # NGX-1/WGX-1 firmware update (CRC auto-filled for known files)
 ```
+
+### Firmware update (NGX-1 / WGX-1)
+
+`actuisense fw <firmware.zip>` (and the **Firmware** tab in the TUI) push an Actisense
+firmware `.zip` to the gateway over the reverse-engineered **BstFt** protocol — no
+Actisense Toolkit needed. The whole `.zip` is streamed in 200-byte windows with
+XON/XOFF flow control; the device unwraps and decrypts the inner `.actp` itself.
+
+- **Progress bar** with percent / KB / rate / ETA, and a confirmation prompt.
+- **CRC**: the Actisense end-of-transfer CRC-32 uses a non-standard polynomial that
+  isn't recovered yet, so the CRC is **auto-filled by filename** for files we've seen
+  (e.g. `NGX-1-Release-v3.068.1986.zip`). For any other file, pass it explicitly with
+  `--crc 0x…` (read from a Toolkit `*-bstft.log`); a wrong/placeholder CRC is safely
+  **rejected** by the device (nothing is flashed).
+- The gateway must be in **Convert** mode at the chosen baud — set it directly with
+  `actuisense mode convert` (no NMEA Reader / power-cycle needed).
+
+⚠️ Do not remove power until the gateway's LED returns to its normal pulse. Protocol
+details: [`docs/reverse-engineering/bstft/`](docs/reverse-engineering/bstft/).
 
 ## Settings coverage
 
 | Setting | CLI | TUI | Notes |
 |---|---|---|---|
-| Operating mode (Filter / Receive-All) | `mode` | `m` | the `0x11` command |
+| Operating mode (Filter / Receive-All / Convert) | `mode` | `m` | the `0x11` command (Filter=1, Receive-All=2, Convert=4) |
 | Per-PGN **Rx** enable (all 339 PGNs) | `enable/disable rx` | `r` | `0x46` |
 | Per-PGN **Tx** enable (all 339 PGNs) | `enable/disable tx` | `t` | `0x47` |
 | Activate enable lists | implicit | `a` | `0x4B` |
@@ -104,7 +131,7 @@ actuisense fw NGX-1-Release-v3.068.1986.zip -p COM5 --crc 0xC2340641   # NGX-1/W
 | Activity log of every exchange (+ live poll) | — | Activity Log tab | line/time/action/result/detail; `p` pauses polling |
 | Choose connection (serial/baud, TCP, WAGO) | `-p` / `monitor` | `Ctrl+O` | serial port auto-detect; start disconnected |
 | Live can0 bus monitor (via WAGO PLC SSH) | `monitor` | Bus Monitor tab | read-only `candump`; per-PGN/source aggregation |
-| Firmware update (NGX-1 / WGX-1) | `fw` | — | BstFt transfer with progress bar; whole `.zip` streamed, device decrypts the `.actp`; see `docs/reverse-engineering/bstft/` |
+| Firmware update (NGX-1 / WGX-1) | `fw` | Firmware tab | BstFt transfer with live progress bar; Browse for the `.zip`, reads the installed version, CRC auto-filled for known files; see `docs/reverse-engineering/bstft/` |
 
 Deliberately **not** wired up yet: serial/CAN baud change, NMEA 0183 P-code, and
 duplicate-filtering — these can disrupt the link, and their payloads are not
