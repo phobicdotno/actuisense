@@ -30,7 +30,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Iterator, List, Optional, Tuple
+from typing import Iterator, List, Optional, Sequence, Tuple
 
 DLE = 0x10
 STX = 0x02
@@ -189,6 +189,43 @@ def cmd_simple(op: Op) -> bytes:
     return build_frame(ACMD_SEND, bytes((int(op),)))
 
 
+# ---- serial / hardware baud-rate config (opcode 0x12 / 0x16) ---------------
+#
+# Actisense gateways store a per-channel "baud code" -- a small u8 index, NOT the
+# raw rate. The numbers live in the closed Comms-SDK header ARLBaudCodes.h, so
+# AcTuiSense does not hard-map rate<->code: read the device's current codes, or
+# pass a code byte explicitly.
+#
+# Reply body (after the 12-byte header opcode/seq/2-status/8-NAME) is:
+#   PORT_BAUD_CFG (0x12):  nChannels(1) then per channel [hw-protocol(1) code(1)]
+#   HARDWARE_BAUD (0x16):  nChannels(1) then per channel [code(1)]
+# Confirmed against a real GET capture of NGX-1 s/n 321326 (cmdsniff.bin, while
+# the unit was at 115200):  PORT body = 02 20 05 01 07,  HW body = 02 05 07.
+#
+# SetPortBaudCodes (Comms SDK: SetPortBaudCodes(nBaudCodes, u8 *codes)) sends one
+# code per channel after the count; DONOT_CHANGE_U8 leaves a channel untouched.
+# NOTE: the SET wire framing is reconstructed from the SDK signature + the GET
+# reply layout; it is not yet confirmed against a captured Toolkit SET. The device
+# validates codes and NAKs invalid ones, so a bad code is rejected -- not bricked.
+
+DONOT_CHANGE_U8 = 0xFF   # ARLBaudCodes.h sentinel: leave this channel's code as-is
+
+
+def cmd_get_port_baud() -> bytes:
+    return build_frame(ACMD_SEND, bytes((Op.PORT_BAUD_CFG,)))
+
+
+def cmd_get_hardware_baud() -> bytes:
+    return build_frame(ACMD_SEND, bytes((Op.HARDWARE_BAUD,)))
+
+
+def cmd_set_port_baud(codes: Sequence[int]) -> bytes:
+    """SetPortBaudCodes (0x12): one baud code per channel, in channel order.
+    Use DONOT_CHANGE_U8 for any channel to leave it unchanged."""
+    body = bytes((Op.PORT_BAUD_CFG, len(codes))) + bytes(c & 0xFF for c in codes)
+    return build_frame(ACMD_SEND, body)
+
+
 # ---- frame decoding --------------------------------------------------------
 
 @dataclass(frozen=True)
@@ -308,6 +345,42 @@ def parse_pgn_query(frame: Frame) -> Optional[Tuple[int, bool]]:
         return None
     pgn = p[12] | (p[13] << 8) | (p[14] << 16)
     return pgn, bool(p[16])
+
+
+@dataclass(frozen=True)
+class BaudChannel:
+    """One channel's baud setting from a PORT_BAUD_CFG / HARDWARE_BAUD reply."""
+    code: int                      # ARL baud code (index into ARLBaudCodes.h)
+    proto: Optional[int] = None    # hw-protocol byte (PORT reply only; None for HW)
+
+
+def parse_baud_reply(frame: Frame) -> List[BaudChannel]:
+    """Decode a PORT_BAUD_CFG (0x12) or HARDWARE_BAUD (0x16) reply into per-channel
+    baud codes. After the 12-byte header: nChannels(1) then per channel [proto, code]
+    for PORT or [code] for HW. Returns [] if no channel data. Raises ValueError if
+    `frame` is not a baud-config reply."""
+    if frame.command != ACMD_RECV or frame.opcode not in (Op.PORT_BAUD_CFG, Op.HARDWARE_BAUD):
+        raise ValueError("not a baud-config reply")
+    is_port = frame.opcode == Op.PORT_BAUD_CFG
+    p = frame.payload
+    idx = 12  # opcode(1) seq(1) status(2) name(8)
+    if len(p) <= idx:
+        return []
+    n = p[idx]
+    out: List[BaudChannel] = []
+    off = idx + 1
+    for _ in range(n):
+        if is_port:
+            if off + 1 >= len(p):
+                break
+            out.append(BaudChannel(code=p[off + 1], proto=p[off]))
+            off += 2
+        else:
+            if off >= len(p):
+                break
+            out.append(BaudChannel(code=p[off]))
+            off += 1
+    return out
 
 
 @dataclass(frozen=True)

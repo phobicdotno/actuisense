@@ -633,11 +633,14 @@ class ActuiSenseApp(App):
         if self.gw is None:
             bus = self._bus_source.name if self._bus_source is not None else None
             if bus:
+                self.sub_title = "BUS MONITOR   •   v%s" % __version__
                 self.set_status("bus monitor: %s%s" % (bus, load))
             else:
+                self.sub_title = self.SUB_TITLE
                 self.set_status("not connected — press Ctrl+O")
             return
         mode = self.mode.name if self.mode else "?"
+        self.sub_title = "MODE: %s   •   v%s" % (mode, __version__)
         flags = ("  ●UNSAVED" if self.dirty else "") + ("  ‖poll paused" if self.poll_paused else "")
         self.set_status("%s   mode=%s   RX:%d  TX:%d%s%s"
                         % (self.gw.name, mode, len(self.rx_enabled), len(self.tx_enabled), flags, load))

@@ -3,6 +3,21 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.6.0] - 2026-06-30
+
+### Added
+- **`baud` command** to show and set the gateway's serial (port) baud codes
+  (opcode `0x12` / `0x16`). `actuisense baud -p PORT` prints the per-channel port and
+  hardware baud codes; `--set 5,7` writes new codes (use `x` to keep a channel),
+  with a confirmation prompt, optional `--commit`, and a read-back. Baud config only
+  answers while the device is in Convert mode. The numeric rate<->code map is not
+  public (closed `ARLBaudCodes.h`), so codes are read from the device or given
+  explicitly -- never guessed. SET framing is reconstructed from the Comms-SDK
+  signature + a real GET capture, not yet confirmed against a captured Toolkit SET;
+  the device validates and NAKs invalid codes.
+- **Operating mode in the header**: the current mode (FILTER / RX_ALL / CONVERT) now
+  shows in the TUI header sub-title, not only the bottom status bar.
+
 ## [0.5.6] - 2026-06-22
 
 ### Changed

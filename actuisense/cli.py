@@ -78,6 +78,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_raw = sub.add_parser("raw", help="dump raw gateway diagnostic queries (read-only, hex)")
     _add_conn(p_raw)
 
+    p_baud = sub.add_parser(
+        "baud", help="show or set the gateway's serial (port) baud codes (opcode 0x12)")
+    _add_conn(p_baud)
+    p_baud.add_argument("--set", metavar="CODES", default=None,
+                        help="comma-separated baud code per channel (e.g. '5,7'); "
+                             "use 'x' to leave a channel unchanged")
+    p_baud.add_argument("--commit", action="store_true", help="persist to EEPROM after --set")
+    p_baud.add_argument("-y", "--yes", action="store_true",
+                        help="skip the confirmation prompt for --set")
+
     p_fw = sub.add_parser("fw", help="update gateway firmware from an Actisense .zip (NGX-1/WGX-1)")
     p_fw.add_argument("zipfile", help="firmware .zip downloaded from actisense.com (do NOT unzip)")
     _add_conn(p_fw)
@@ -214,6 +224,74 @@ def cmd_raw(gw: Gateway) -> int:
     return 0
 
 
+def cmd_baud(gw: Gateway, set_codes: Optional[str], commit: bool, assume_yes: bool) -> int:
+    """Show the gateway's serial baud codes, or set them with --set.
+
+    Baud "codes" are Actisense ARL per-channel indices, not raw rates (the
+    rate<->code table lives in the closed ARLBaudCodes.h). Baud config only answers
+    while the device is in Convert mode; in Transfer mode it returns nothing.
+    """
+    from .protocol import DONOT_CHANGE_U8
+
+    print("Gateway: %s" % gw.name)
+    port = gw.get_port_baud()
+    hw = gw.get_hardware_baud()
+
+    def _show(title, chans, with_proto):
+        print("%s:" % title)
+        if not chans:
+            print("  (no reply -- baud config only answers in Convert mode)")
+            return
+        for i, c in enumerate(chans):
+            if with_proto:
+                print("  ch%d  proto=0x%02X  code=0x%02X" % (i, c.proto or 0, c.code))
+            else:
+                print("  ch%d  code=0x%02X" % (i, c.code))
+
+    _show("Port baud codes (0x12)", port, True)
+    _show("Hardware baud codes (0x16)", hw, False)
+
+    if set_codes is None:
+        return 0
+    if not port:
+        print("refusing --set: cannot read current port baud codes (device not in a "
+              "configurable state -- put it in Convert mode first).", file=sys.stderr)
+        return 1
+
+    codes = []
+    for tok in set_codes.split(","):
+        tok = tok.strip().lower()
+        codes.append(DONOT_CHANGE_U8 if tok in ("x", "-", "") else int(tok, 0) & 0xFF)
+    if len(codes) != len(port):
+        print("refusing --set: device has %d channel(s); give exactly that many codes "
+              "(use 'x' to keep one). You gave %d." % (len(port), len(codes)), file=sys.stderr)
+        return 1
+
+    print("\nProposed change:")
+    for i, (cur, new) in enumerate(zip(port, codes)):
+        if new == DONOT_CHANGE_U8:
+            print("  ch%d  code 0x%02X  (unchanged)" % (i, cur.code))
+        else:
+            print("  ch%d  code 0x%02X -> 0x%02X" % (i, cur.code, new))
+    print("WARNING: this writes the gateway's serial baud. After it takes effect you must "
+          "reconnect at the new rate. The device NAKs invalid codes.")
+    if not assume_yes:
+        try:
+            if input("Proceed? [y/N] ").strip().lower() not in ("y", "yes"):
+                print("Aborted.")
+                return 1
+        except (EOFError, KeyboardInterrupt):
+            print("\nAborted.")
+            return 1
+
+    gw.set_port_baud(codes, commit=commit)
+    after = gw.get_port_baud()
+    print("Sent." + ("  Committed to EEPROM." if commit else "  (RAM only -- add --commit to persist)"))
+    if after:
+        print("read-back: " + ", ".join("0x%02X" % c.code for c in after))
+    return 0
+
+
 class _ProgressBar:
     """A self-contained carriage-return progress bar (no external deps)."""
 
@@ -347,6 +425,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 return cmd_load(gw, db, args.file, args.commit)
             if args.cmd == "raw":
                 return cmd_raw(gw)
+            if args.cmd == "baud":
+                return cmd_baud(gw, args.set, args.commit, args.yes)
             if args.cmd == "fw":
                 crc = int(args.crc, 0) if args.crc else None
                 return cmd_fw(gw, args.zipfile, crc, args.yes)

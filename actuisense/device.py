@@ -256,6 +256,40 @@ class Gateway:
     def commit_eeprom(self) -> None:
         self.command(proto.cmd_commit_eeprom(), want_op=None, action="Commit to EEPROM")
 
+    # -- baud-rate config ---------------------------------------------------
+
+    def get_port_baud(self) -> List["proto.BaudChannel"]:
+        """Read the per-channel serial (port) baud codes (opcode 0x12). Returns []
+        if the device does not answer (e.g. it is in Transfer mode -- baud config
+        only responds in Convert mode)."""
+        frames = self.command(proto.cmd_get_port_baud(), want_op=Op.PORT_BAUD_CFG,
+                              action="Get Port Baud Codes")
+        for f in frames:
+            chans = proto.parse_baud_reply(f)
+            if chans:
+                return chans
+        return []
+
+    def get_hardware_baud(self) -> List["proto.BaudChannel"]:
+        """Read the per-channel hardware baud codes (opcode 0x16)."""
+        frames = self.command(proto.cmd_get_hardware_baud(), want_op=Op.HARDWARE_BAUD,
+                              action="Get Hardware Baud Codes")
+        for f in frames:
+            chans = proto.parse_baud_reply(f)
+            if chans:
+                return chans
+        return []
+
+    def set_port_baud(self, codes: Sequence[int], commit: bool = False) -> None:
+        """Set the per-channel serial (port) baud codes (SetPortBaudCodes, 0x12).
+        `codes` is one ARL baud code per channel; use proto.DONOT_CHANGE_U8 to leave
+        a channel unchanged. The device NAKs invalid codes. After this takes effect
+        you must reconnect at the new rate."""
+        self.command(proto.cmd_set_port_baud(codes), want_op=None,
+                     action="Set Port Baud Codes")
+        if commit:
+            self.commit_eeprom()
+
     def enable_pgns(self, which: PgnList, pgns: Iterable[int], enable: bool = True,
                     activate: bool = True, commit: bool = False) -> None:
         for pgn in pgns:

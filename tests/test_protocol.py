@@ -105,3 +105,46 @@ def test_parse_per_pgn_query_reply_ngx():
     # a non-query frame (operating-mode reply) is not a per-PGN reply
     mode = hx("10 02 a0 0e 11 01 3b 00 2e e7 04 00 00 00 00 00 02 00 ea 10 03")
     assert p.parse_pgn_query(p.decode_all(mode)[0]) is None
+
+
+
+# --- baud-rate config (opcode 0x12 / 0x16) ----------------------------------
+
+def test_get_port_baud_golden():
+    assert p.cmd_get_port_baud() == hx("10 02 a1 01 12 4c 10 03")
+
+
+def test_get_hardware_baud_golden():
+    assert p.cmd_get_hardware_baud() == hx("10 02 a1 01 16 48 10 03")
+
+
+def test_set_port_baud_frame():
+    f = p.cmd_set_port_baud([0x05, 0x07])
+    frames = p.decode_all(f)
+    assert len(frames) == 1
+    assert frames[0].command == p.ACMD_SEND
+    assert frames[0].payload == hx("12 02 05 07")
+    assert sum(f[2:-2]) % 256 == 0
+
+
+def test_set_port_baud_donot_change():
+    assert p.decode_all(p.cmd_set_port_baud([p.DONOT_CHANGE_U8, 0x07]))[0].payload == hx("12 02 ff 07")
+
+
+def test_parse_port_baud_reply_real_capture():
+    frame = p.Frame(p.ACMD_RECV, hx("12 01 3b 00 2e e7 04 00 00 00 00 00 02 20 05 01 07"), True)
+    chans = p.parse_baud_reply(frame)
+    assert [(c.proto, c.code) for c in chans] == [(0x20, 0x05), (0x01, 0x07)]
+
+
+def test_parse_hardware_baud_reply_real_capture():
+    frame = p.Frame(p.ACMD_RECV, hx("16 01 3b 00 2e e7 04 00 00 00 00 00 02 05 07"), True)
+    chans = p.parse_baud_reply(frame)
+    assert [c.code for c in chans] == [0x05, 0x07]
+    assert all(c.proto is None for c in chans)
+
+
+def test_parse_baud_reply_rejects_other():
+    import pytest
+    with pytest.raises(ValueError):
+        p.parse_baud_reply(p.Frame(p.ACMD_RECV, hx("11 01 00"), True))
