@@ -96,6 +96,7 @@ actuisense mode rxall  -p /dev/ttyUSB0           # filter | rxall | convert
 actuisense mode convert -p COM5                  # NMEA 0183<->2000 conversion mode
 actuisense list tx     -p /dev/ttyUSB0
 actuisense fw NGX-1-Release-v3.068.1986.zip -p COM5   # NGX-1/WGX-1 firmware update (CRC auto-filled for known files)
+actuisense baud        -p COM5                   # show serial baud codes; --set 5,7 to change (Convert mode only)
 ```
 
 ### Firmware update (NGX-1 / WGX-1)
@@ -128,12 +129,13 @@ details: [`docs/reverse-engineering/bstft/`](docs/reverse-engineering/bstft/).
 | Commit to EEPROM (persist) | `--commit` | `c` | `0x01` |
 | Read current Rx/Tx lists & mode | `info` / `list` | on connect | parsed |
 | Raw diagnostic queries (hw/product/total-time) | `raw` | — | read-only hex; vendor-binary fields are **not** guessed |
+| Serial (port) baud codes | `baud` / `--set` | — | `0x12`/`0x16` GET+SET; codes read from device or supplied explicitly (closed rate<->code table) |
 | Activity log of every exchange (+ live poll) | — | Activity Log tab | line/time/action/result/detail; `p` pauses polling |
 | Choose connection (serial/baud, TCP, WAGO) | `-p` / `monitor` | `Ctrl+O` | serial port auto-detect; start disconnected |
 | Live can0 bus monitor (via WAGO PLC SSH) | `monitor` | Bus Monitor tab | read-only `candump`; per-PGN/source aggregation |
 | Firmware update (NGX-1 / WGX-1) | `fw` | Firmware tab | BstFt transfer with live progress bar; Browse for the `.zip`, reads the installed version, CRC auto-filled for known files; see `docs/reverse-engineering/bstft/` |
 
-Deliberately **not** wired up yet: serial/CAN baud change, NMEA 0183 P-code, and
+Deliberately **not** wired up yet: NMEA 0183 P-code, and
 duplicate-filtering — these can disrupt the link, and their payloads are not
 publicly specified, so they are left out rather than guessed. Device model/firmware
 identification (via N2K PGN 126996) is a planned addition. The `protocol` module
