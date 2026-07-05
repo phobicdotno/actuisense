@@ -392,6 +392,7 @@ class ActuiSenseApp(App):
         Binding("R", "select_all_rx", "All RX"),    # Shift+R: select/clear all (shown) RX
         Binding("T", "select_all_tx", "All TX"),    # Shift+T: select/clear all (shown) TX
         Binding("B", "select_all_both", "All Both"),  # Shift+B: select/clear all (shown) RX+TX
+        Binding("C", "clear_shown", "Clear"),         # Shift+C: clear all (shown) RX+TX
         Binding("a", "activate", "Activate"),
         Binding("c", "commit", "Commit EEPROM"),
         Binding("s", "save_lists", "Save"),
@@ -411,6 +412,7 @@ class ActuiSenseApp(App):
         "toggle_rx": {"filtertab"}, "toggle_tx": {"filtertab"},
         "toggle_both": {"filtertab"}, "select_all_rx": {"filtertab"},
         "select_all_tx": {"filtertab"}, "select_all_both": {"filtertab"},
+        "clear_shown": {"filtertab"},
         "activate": {"filtertab"}, "commit": {"filtertab"},
         "save_lists": {"filtertab"}, "load_lists": {"filtertab"},
         "cycle_mode": {"filtertab"}, "reload": {"filtertab"},
@@ -1214,6 +1216,33 @@ class ActuiSenseApp(App):
         self.render_status()
         self.set_status("%s RX+TX for %d PGN(s) (writing to gateway…)"
                         % ("Selected" if target else "Cleared", len(pgns)))
+        if push_rx:
+            self._push_many(PgnList.RX, push_rx)
+        if push_tx:
+            self._push_many(PgnList.TX, push_tx)
+
+    def action_clear_shown(self) -> None:
+        """Unconditionally clear BOTH RX and TX for every PGN currently shown -- the
+        filtered subset (key: Shift+C). Unlike the Shift+R/T/B toggles this never
+        selects: a mixed state goes straight to empty in one bulk write."""
+        if self.gw is None:
+            self.notify("no gateway connected", severity="warning")
+            return
+        pgns = list(self._row_pgn.values())
+        push_rx = [(p, False) for p in pgns if p in self.rx_enabled]
+        push_tx = [(p, False) for p in pgns if p in self.tx_enabled]
+        if not (push_rx or push_tx):
+            self.notify("nothing to clear (no shown PGN is enabled)")
+            return
+        for p, _ in push_rx:
+            self.rx_enabled.discard(p)
+        for p, _ in push_tx:
+            self.tx_enabled.discard(p)
+        self.dirty = True
+        self.refresh_marks()
+        self.render_status()
+        self.set_status("Cleared RX+TX for %d PGN(s) (writing to gateway…)"
+                        % len({p for p, _ in push_rx + push_tx}))
         if push_rx:
             self._push_many(PgnList.RX, push_rx)
         if push_tx:

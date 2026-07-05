@@ -163,6 +163,34 @@ def test_commit_calls_gateway():
     _run(scenario)
 
 
+def test_clear_shown_disables_all_enabled_pgns():
+    """Shift+C unconditionally clears RX+TX for the shown PGNs from any mixed state
+    in one pass (no select-all-first toggle dance), and is a no-op when all clear."""
+    async def scenario():
+        gw = FakeGateway()
+        app = ActuiSenseApp(gw)
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            assert app.rx_enabled and app.tx_enabled  # mixed state from the fake gw
+            app.action_clear_shown()
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            assert app.rx_enabled == set()
+            assert app.tx_enabled == set()
+            assert app.dirty is True
+            assert (PgnList.RX, 60928, False) in gw.calls
+            for pgn in (127512, 127514, 127751):
+                assert (PgnList.TX, pgn, False) in gw.calls
+            # nothing enabled -> a second press writes nothing more
+            n_calls = len(gw.calls)
+            app.action_clear_shown()
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            assert len(gw.calls) == n_calls
+    _run(scenario)
+
+
 def test_activity_log_view_is_trimmed_to_cap():
     """The visible log table must stay at LOG_VIEW_MAX rows, dropping the oldest."""
     from actuisense.device import LogEntry

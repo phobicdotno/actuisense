@@ -5,6 +5,12 @@ versions are `MAJOR.MINOR.PATCH`.
 
 ## [0.6.1] - 2026-07-05
 
+### Added
+- **Shift+C clears the shown PGNs**: unconditionally disables both RX and TX for every
+  PGN currently shown on the PGN Filter tab (the filtered subset), in one bulk write.
+  Unlike the Shift+R/T/B toggles it never selects, so a mixed state goes straight to
+  empty without the select-all-first double press.
+
 ### Fixed
 - **Activity Log view cap actually applies**: trimming the visible log table passed row
   *values* where the DataTable API expects a row *key*, so the removal always failed
