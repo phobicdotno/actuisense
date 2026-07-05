@@ -21,6 +21,11 @@ versions are `MAJOR.MINOR.PATCH`.
   empty without the select-all-first double press.
 
 ### Fixed
+- **CI green on Python 3.9 and 3.12 again**: `set_status` no longer raises when a
+  worker/timer delivers a status update while the widget tree isn't queryable
+  (mid-teardown, or a modal on top) -- a latent crash path in the real TUI and the
+  cause of flaky 3.12 test failures; and the ConnectionScreen unit test now provides
+  the event loop that Textual widget construction requires on Python 3.9.
 - **Activity Log view cap actually applies**: trimming the visible log table passed row
   *values* where the DataTable API expects a row *key*, so the removal always failed
   (silently) and the table grew without bound in long sessions. Rows are now tracked by
