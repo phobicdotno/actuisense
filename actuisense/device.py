@@ -497,6 +497,10 @@ class Gateway:
                         deadline = time.monotonic() + xoff_wait
                         while paused[0] and time.monotonic() < deadline:
                             _drain(0.2)
+                        if paused[0]:
+                            raise GatewayError(
+                                "device held XOFF for %.0fs -- transfer aborted "
+                                "(nothing was flashed)" % xoff_wait)
                         since_drain = 0
                         continue
                     self.t.write(proto.build_mdt_data(offset, data[offset:offset + chunk]))
@@ -512,9 +516,6 @@ class Gateway:
                     raise GatewayError(
                         "no MDT end/OK -- the device may have rejected the image "
                         "(CRC mismatch is safe; nothing was flashed)")
-        except GatewayError:
-            self._log("Firmware push %s" % filename, "Error", "no ack")
-            raise
         except Exception as e:
             self._log("Firmware push %s" % filename, "Error", str(e)[:40])
             raise

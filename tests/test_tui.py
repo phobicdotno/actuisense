@@ -163,6 +163,28 @@ def test_commit_calls_gateway():
     _run(scenario)
 
 
+def test_activity_log_view_is_trimmed_to_cap():
+    """The visible log table must stay at LOG_VIEW_MAX rows, dropping the oldest."""
+    from actuisense.device import LogEntry
+    from actuisense.tui import LOG_VIEW_MAX
+
+    async def scenario():
+        gw = FakeGateway()
+        app = ActuiSenseApp(gw)
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            extra = 25
+            for i in range(1, LOG_VIEW_MAX + extra + 1):
+                app._append_log(LogEntry(i, "00:00:00", "poll", "OK"))
+            await pilot.pause()
+            logt = app.query_one("#logtable")
+            assert logt.row_count == LOG_VIEW_MAX
+            # the oldest rows were the ones dropped
+            assert int(logt.get_row_at(0)[0]) == extra + 1
+    _run(scenario)
+
+
 def test_header_click_sorts_column_asc_then_desc():
     from rich.text import Text
     from textual.widgets import DataTable

@@ -176,8 +176,12 @@ def cmd_save(gw: Gateway, db: PgnDb, path: str) -> int:
     text = dump_lists(rx, tx, db, gateway=gw.name,
                       mode=(mode.name if mode else None),
                       when=datetime.datetime.now().isoformat(timespec="seconds"))
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(text)
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(text)
+    except OSError as e:
+        print("error: cannot write %s: %s" % (path, e), file=sys.stderr)
+        return 2
     print("Saved %d RX + %d TX PGNs to %s" % (len(set(rx)), len(set(tx)), path))
     return 0
 
@@ -185,8 +189,15 @@ def cmd_save(gw: Gateway, db: PgnDb, path: str) -> int:
 def cmd_load(gw: Gateway, db: PgnDb, path: str, commit: bool) -> int:
     """Make the gateway's enable lists match a saved file (enable missing, disable extra)."""
     from .pgnfile import parse_lists
-    with open(path, "r", encoding="utf-8") as f:
-        rx_want, tx_want = parse_lists(f.read())
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            rx_want, tx_want = parse_lists(f.read())
+    except OSError as e:
+        print("error: cannot read %s: %s" % (path, e), file=sys.stderr)
+        return 2
+    except ValueError as e:
+        print("error: bad list file %s: %s" % (path, e), file=sys.stderr)
+        return 2
     cands = [i.pgn for i in db.all()]
     changed = 0
     for which, want in ((PgnList.RX, rx_want), (PgnList.TX, tx_want)):
@@ -261,7 +272,12 @@ def cmd_baud(gw: Gateway, set_codes: Optional[str], commit: bool, assume_yes: bo
     codes = []
     for tok in set_codes.split(","):
         tok = tok.strip().lower()
-        codes.append(DONOT_CHANGE_U8 if tok in ("x", "-", "") else int(tok, 0) & 0xFF)
+        try:
+            codes.append(DONOT_CHANGE_U8 if tok in ("x", "-", "") else int(tok, 0) & 0xFF)
+        except ValueError:
+            print("error: bad baud code %r (expected a number like 5 or 0x07, or 'x' "
+                  "to keep a channel)" % tok, file=sys.stderr)
+            return 2
     if len(codes) != len(port):
         print("refusing --set: device has %d channel(s); give exactly that many codes "
               "(use 'x' to keep one). You gave %d." % (len(port), len(codes)), file=sys.stderr)
@@ -428,7 +444,12 @@ def main(argv: Optional[List[str]] = None) -> int:
             if args.cmd == "baud":
                 return cmd_baud(gw, args.set, args.commit, args.yes)
             if args.cmd == "fw":
-                crc = int(args.crc, 0) if args.crc else None
+                try:
+                    crc = int(args.crc, 0) if args.crc else None
+                except ValueError:
+                    print("error: bad --crc value %r (expected e.g. 0xC2340641)" % args.crc,
+                          file=sys.stderr)
+                    return 2
                 return cmd_fw(gw, args.zipfile, crc, args.yes)
     except GatewayError as e:
         print("gateway error: %s" % e, file=sys.stderr)

@@ -3,6 +3,28 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.6.1] - 2026-07-05
+
+### Fixed
+- **Activity Log view cap actually applies**: trimming the visible log table passed row
+  *values* where the DataTable API expects a row *key*, so the removal always failed
+  (silently) and the table grew without bound in long sessions. Rows are now tracked by
+  key and the view is correctly capped at `LOG_VIEW_MAX`.
+- **Firmware push no longer hangs on a stuck XOFF**: if the device raised XOFF and never
+  sent XON, the sender waited forever (holding the transport lock) because the
+  `xoff_wait` deadline was recomputed on every pass. It now aborts with a `GatewayError`
+  after `xoff_wait` seconds with no XON (nothing is flashed), as documented. The error
+  log line also carries the real failure message instead of a fixed "no ack".
+- **CLI input validation**: a malformed `fw --crc` value, a malformed `baud --set` code,
+  and unreadable/unwritable files in `save` / `load` now print a clear error and exit 2
+  instead of dumping a traceback.
+- **Version mismatch**: `pyproject.toml` still said 0.5.6 while the package reported
+  0.6.0; both now agree.
+
+### Changed
+- **PGN catalogue lookups cached**: `PgnDb.all()` no longer re-sorts the whole catalogue
+  on every call (the TUI filter runs it per keystroke); the sorted list is built once.
+
 ## [0.6.0] - 2026-06-30
 
 ### Added

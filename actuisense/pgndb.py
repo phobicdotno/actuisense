@@ -76,12 +76,13 @@ class PgnDb:
 
     def __init__(self) -> None:
         self._by_pgn = _index()
+        self._sorted = [self._by_pgn[k] for k in sorted(self._by_pgn)]
 
     def __len__(self) -> int:
         return len(self._by_pgn)
 
     def all(self) -> List[PgnInfo]:
-        return [self._by_pgn[k] for k in sorted(self._by_pgn)]
+        return list(self._sorted)
 
     def get(self, pgn: int) -> PgnInfo:
         info = self._by_pgn.get(pgn)
@@ -110,8 +111,5 @@ class PgnDb:
         t = text.strip().lower()
         if not t:
             return self.all()
-        rows = []
-        for info in self.all():
-            if t in str(info.pgn) or t in info.name.lower():
-                rows.append(info)
-        return rows
+        return [info for info in self._sorted
+                if t in str(info.pgn) or t in info.name.lower()]

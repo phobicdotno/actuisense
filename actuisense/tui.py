@@ -22,6 +22,7 @@ gateway object, which lets it be driven headlessly in tests with a fake gateway.
 from __future__ import annotations
 
 import time
+from collections import deque
 from typing import Optional, Set
 
 from rich.text import Text
@@ -428,7 +429,7 @@ class ActuiSenseApp(App):
         self.poll_paused = False
         self._polling = False
         self._row_pgn = {}
-        self._log_rows = 0
+        self._log_keys: deque = deque()  # row keys of the visible log rows, oldest first
         self._sort_state = {}  # table id -> (column_key, reverse) for header-click sort
         # Bus monitor state (fed by WAGO can0 OR the gateway's 0x93 N2K stream).
         self._bus_source = None
@@ -655,16 +656,14 @@ class ActuiSenseApp(App):
         except Exception:
             return
         style = _RESULT_STYLE.get(entry.result, "")
-        table.add_row(str(entry.seq), entry.time, entry.action,
-                      Text(entry.result, style=style), entry.detail)
-        self._log_rows += 1
-        if self._log_rows > LOG_VIEW_MAX:
+        key = table.add_row(str(entry.seq), entry.time, entry.action,
+                            Text(entry.result, style=style), entry.detail)
+        self._log_keys.append(key)
+        while len(self._log_keys) > LOG_VIEW_MAX:
             try:
-                table.remove_row(table.get_row_at(0))
+                table.remove_row(self._log_keys.popleft())
             except Exception:
                 pass
-            else:
-                self._log_rows -= 1
         try:
             table.scroll_end(animate=False)
         except Exception:
@@ -1329,7 +1328,7 @@ class ActuiSenseApp(App):
 
     def action_clear_log(self) -> None:
         self.query_one("#logtable", DataTable).clear()
-        self._log_rows = 0
+        self._log_keys.clear()
 
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id == "filter":
