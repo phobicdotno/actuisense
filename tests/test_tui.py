@@ -163,6 +163,48 @@ def test_commit_calls_gateway():
     _run(scenario)
 
 
+def test_footer_shortcuts_follow_tab_and_connection():
+    """check_action hides off-tab shortcuts, hides the Firmware jump on the Firmware
+    tab itself, and hides all gateway actions while no gateway is connected."""
+    async def scenario():
+        gw = FakeGateway()
+        app = ActuiSenseApp(gw)
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            tc = app.query_one("TabbedContent")
+            # PGN Filter tab: list shortcuts shown, and 'u' jumps to Firmware
+            assert app.check_action("toggle_rx", ())
+            assert app.check_action("clear_shown", ())
+            assert app.check_action("firmware", ())
+            # Bus Monitor tab: list shortcuts hidden, filter + firmware shown
+            tc.active = "bustab"
+            await pilot.pause()
+            assert not app.check_action("toggle_rx", ())
+            assert not app.check_action("activate", ())
+            assert app.check_action("focus_filter", ())
+            assert app.check_action("firmware", ())
+            # Firmware tab: the jump-to-Firmware shortcut is pointless here
+            tc.active = "fwtab"
+            await pilot.pause()
+            assert not app.check_action("firmware", ())
+            assert app.check_action("connection", ())
+    _run(scenario)
+
+
+def test_footer_hides_gateway_shortcuts_when_disconnected():
+    async def scenario():
+        app = ActuiSenseApp(None)  # starts disconnected (Connection dialog opens)
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            for action in ("toggle_rx", "activate", "commit", "cycle_mode",
+                           "firmware", "toggle_poll"):
+                assert not app.check_action(action, ())
+            assert app.check_action("connection", ())
+            assert app.check_action("quit", ())
+    _run(scenario)
+
+
 def test_clear_shown_disables_all_enabled_pgns():
     """Shift+C unconditionally clears RX+TX for the shown PGNs from any mixed state
     in one pass (no select-all-first toggle dance), and is a no-op when all clear."""

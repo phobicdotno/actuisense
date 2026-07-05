@@ -5,6 +5,15 @@ versions are `MAJOR.MINOR.PATCH`.
 
 ## [0.6.1] - 2026-07-05
 
+### Changed
+- **Footer shortcuts now track connection state too**: gateway actions (toggle/select/
+  clear, Activate, Commit, Save/Load, Mode, Reload, poll pause, Firmware) are hidden
+  while no gateway is connected instead of showing shortcuts that could only warn, and
+  the `u` Firmware jump no longer shows on the Firmware tab itself (or in WAGO
+  bus-monitor mode, where that tab is hidden).
+- **PGN catalogue lookups cached**: `PgnDb.all()` no longer re-sorts the whole catalogue
+  on every call (the TUI filter runs it per keystroke); the sorted list is built once.
+
 ### Added
 - **Shift+C clears the shown PGNs**: unconditionally disables both RX and TX for every
   PGN currently shown on the PGN Filter tab (the filtered subset), in one bulk write.
@@ -26,10 +35,6 @@ versions are `MAJOR.MINOR.PATCH`.
   instead of dumping a traceback.
 - **Version mismatch**: `pyproject.toml` still said 0.5.6 while the package reported
   0.6.0; both now agree.
-
-### Changed
-- **PGN catalogue lookups cached**: `PgnDb.all()` no longer re-sorts the whole catalogue
-  on every call (the TUI filter runs it per keystroke); the sorted list is built once.
 
 ## [0.6.0] - 2026-06-30
 

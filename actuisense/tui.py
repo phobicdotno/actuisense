@@ -418,6 +418,15 @@ class ActuiSenseApp(App):
         "cycle_mode": {"filtertab"}, "reload": {"filtertab"},
         "focus_filter": {"filtertab", "bustab"},
         "toggle_poll": {"filtertab", "logtab"},
+        "firmware": {"filtertab", "bustab", "logtab"},  # a jump TO fwtab; hide once there
+    }
+
+    # Actions that talk to an Actisense gateway. Hidden while none is connected
+    # (disconnected, or WAGO bus-monitor mode) — they could only warn.
+    _GATEWAY_ACTIONS = {
+        "toggle_rx", "toggle_tx", "toggle_both", "select_all_rx", "select_all_tx",
+        "select_all_both", "clear_shown", "activate", "commit", "save_lists",
+        "load_lists", "cycle_mode", "reload", "toggle_poll", "firmware",
     }
 
     def __init__(self, gateway=None, db: Optional[PgnDb] = None):
@@ -535,10 +544,13 @@ class ActuiSenseApp(App):
             return "filtertab"
 
     def check_action(self, action: str, parameters):
-        """Hide (and disable) bindings that aren't useful on the current tab, so the
-        Footer only lists the shortcuts relevant to what's open. Textual drops a binding
-        from the footer only when check_action returns False (None would dim it but keep
-        it shown), so return False for off-tab actions."""
+        """Hide (and disable) bindings that aren't useful right now, so the Footer only
+        lists the shortcuts relevant to the open tab and the connection state: off-tab
+        actions and gateway actions without a gateway are dropped. Textual removes a
+        binding from the footer only when check_action returns False (None would dim it
+        but keep it shown), so return False for irrelevant actions."""
+        if action in self._GATEWAY_ACTIONS and self.gw is None:
+            return False
         tabs = self._TAB_ACTIONS.get(action)
         if tabs is None:
             return True  # global binding (connection, quit, palette)
