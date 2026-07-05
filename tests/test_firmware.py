@@ -146,6 +146,28 @@ def test_push_firmware_streams_whole_file_and_acks():
     assert progress[-1] == (len(data), len(data))
 
 
+def test_push_firmware_aborts_on_persistent_xoff():
+    """A device that raises XOFF and never sends XON must abort the transfer with
+    a GatewayError after xoff_wait, not spin forever holding the transport lock."""
+    from actuisense.device import Gateway, GatewayError
+
+    class _StuckXoffDevice(_FakeDevice):
+        def write(self, data):
+            super().write(data)
+            for f in decode_all(bytes(data)):
+                if f.command == proto.FT and f.payload[:1] == bytes((proto.Ft.DATA,)):
+                    # XOFF at the first DATA frame; XON never follows.
+                    self._out += proto.build_frame(
+                        proto.FT, bytes.fromhex("110000" + "00000000" + "0100000000"))
+
+    data = bytes(1000)
+    dev = _StuckXoffDevice()
+    gw = Gateway(dev)
+    with pytest.raises(GatewayError, match="XOFF"):
+        gw.push_firmware(data, "fw.zip", crc=0xC2340641,
+                         drain_every=200, xoff_wait=0.3)
+
+
 def test_push_firmware_default_crc_is_placeholder_zlib():
     data = b"hello firmware" * 20
     assert proto.firmware_crc(data) == zlib.crc32(data) & 0xFFFFFFFF

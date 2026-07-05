@@ -22,6 +22,7 @@ gateway object, which lets it be driven headlessly in tests with a fake gateway.
 from __future__ import annotations
 
 import time
+from collections import deque
 from typing import Optional, Set
 
 from rich.text import Text
@@ -391,6 +392,7 @@ class ActuiSenseApp(App):
         Binding("R", "select_all_rx", "All RX"),    # Shift+R: select/clear all (shown) RX
         Binding("T", "select_all_tx", "All TX"),    # Shift+T: select/clear all (shown) TX
         Binding("B", "select_all_both", "All Both"),  # Shift+B: select/clear all (shown) RX+TX
+        Binding("C", "clear_shown", "Clear"),         # Shift+C: clear all (shown) RX+TX
         Binding("a", "activate", "Activate"),
         Binding("c", "commit", "Commit EEPROM"),
         Binding("s", "save_lists", "Save"),
@@ -410,11 +412,21 @@ class ActuiSenseApp(App):
         "toggle_rx": {"filtertab"}, "toggle_tx": {"filtertab"},
         "toggle_both": {"filtertab"}, "select_all_rx": {"filtertab"},
         "select_all_tx": {"filtertab"}, "select_all_both": {"filtertab"},
+        "clear_shown": {"filtertab"},
         "activate": {"filtertab"}, "commit": {"filtertab"},
         "save_lists": {"filtertab"}, "load_lists": {"filtertab"},
         "cycle_mode": {"filtertab"}, "reload": {"filtertab"},
         "focus_filter": {"filtertab", "bustab"},
         "toggle_poll": {"filtertab", "logtab"},
+        "firmware": {"filtertab", "bustab", "logtab"},  # a jump TO fwtab; hide once there
+    }
+
+    # Actions that talk to an Actisense gateway. Hidden while none is connected
+    # (disconnected, or WAGO bus-monitor mode) — they could only warn.
+    _GATEWAY_ACTIONS = {
+        "toggle_rx", "toggle_tx", "toggle_both", "select_all_rx", "select_all_tx",
+        "select_all_both", "clear_shown", "activate", "commit", "save_lists",
+        "load_lists", "cycle_mode", "reload", "toggle_poll", "firmware",
     }
 
     def __init__(self, gateway=None, db: Optional[PgnDb] = None):
@@ -428,7 +440,7 @@ class ActuiSenseApp(App):
         self.poll_paused = False
         self._polling = False
         self._row_pgn = {}
-        self._log_rows = 0
+        self._log_keys: deque = deque()  # row keys of the visible log rows, oldest first
         self._sort_state = {}  # table id -> (column_key, reverse) for header-click sort
         # Bus monitor state (fed by WAGO can0 OR the gateway's 0x93 N2K stream).
         self._bus_source = None
@@ -532,10 +544,13 @@ class ActuiSenseApp(App):
             return "filtertab"
 
     def check_action(self, action: str, parameters):
-        """Hide (and disable) bindings that aren't useful on the current tab, so the
-        Footer only lists the shortcuts relevant to what's open. Textual drops a binding
-        from the footer only when check_action returns False (None would dim it but keep
-        it shown), so return False for off-tab actions."""
+        """Hide (and disable) bindings that aren't useful right now, so the Footer only
+        lists the shortcuts relevant to the open tab and the connection state: off-tab
+        actions and gateway actions without a gateway are dropped. Textual removes a
+        binding from the footer only when check_action returns False (None would dim it
+        but keep it shown), so return False for irrelevant actions."""
+        if action in self._GATEWAY_ACTIONS and self.gw is None:
+            return False
         tabs = self._TAB_ACTIONS.get(action)
         if tabs is None:
             return True  # global binding (connection, quit, palette)
@@ -655,16 +670,14 @@ class ActuiSenseApp(App):
         except Exception:
             return
         style = _RESULT_STYLE.get(entry.result, "")
-        table.add_row(str(entry.seq), entry.time, entry.action,
-                      Text(entry.result, style=style), entry.detail)
-        self._log_rows += 1
-        if self._log_rows > LOG_VIEW_MAX:
+        key = table.add_row(str(entry.seq), entry.time, entry.action,
+                            Text(entry.result, style=style), entry.detail)
+        self._log_keys.append(key)
+        while len(self._log_keys) > LOG_VIEW_MAX:
             try:
-                table.remove_row(table.get_row_at(0))
+                table.remove_row(self._log_keys.popleft())
             except Exception:
                 pass
-            else:
-                self._log_rows -= 1
         try:
             table.scroll_end(animate=False)
         except Exception:
@@ -1220,6 +1233,33 @@ class ActuiSenseApp(App):
         if push_tx:
             self._push_many(PgnList.TX, push_tx)
 
+    def action_clear_shown(self) -> None:
+        """Unconditionally clear BOTH RX and TX for every PGN currently shown -- the
+        filtered subset (key: Shift+C). Unlike the Shift+R/T/B toggles this never
+        selects: a mixed state goes straight to empty in one bulk write."""
+        if self.gw is None:
+            self.notify("no gateway connected", severity="warning")
+            return
+        pgns = list(self._row_pgn.values())
+        push_rx = [(p, False) for p in pgns if p in self.rx_enabled]
+        push_tx = [(p, False) for p in pgns if p in self.tx_enabled]
+        if not (push_rx or push_tx):
+            self.notify("nothing to clear (no shown PGN is enabled)")
+            return
+        for p, _ in push_rx:
+            self.rx_enabled.discard(p)
+        for p, _ in push_tx:
+            self.tx_enabled.discard(p)
+        self.dirty = True
+        self.refresh_marks()
+        self.render_status()
+        self.set_status("Cleared RX+TX for %d PGN(s) (writing to gateway…)"
+                        % len({p for p, _ in push_rx + push_tx}))
+        if push_rx:
+            self._push_many(PgnList.RX, push_rx)
+        if push_tx:
+            self._push_many(PgnList.TX, push_tx)
+
     def action_activate(self) -> None:
         if self.gw is None:
             self.notify("no gateway connected", severity="warning")
@@ -1329,7 +1369,7 @@ class ActuiSenseApp(App):
 
     def action_clear_log(self) -> None:
         self.query_one("#logtable", DataTable).clear()
-        self._log_rows = 0
+        self._log_keys.clear()
 
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id == "filter":

@@ -163,6 +163,98 @@ def test_commit_calls_gateway():
     _run(scenario)
 
 
+def test_footer_shortcuts_follow_tab_and_connection():
+    """check_action hides off-tab shortcuts, hides the Firmware jump on the Firmware
+    tab itself, and hides all gateway actions while no gateway is connected."""
+    async def scenario():
+        gw = FakeGateway()
+        app = ActuiSenseApp(gw)
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            tc = app.query_one("TabbedContent")
+            # PGN Filter tab: list shortcuts shown, and 'u' jumps to Firmware
+            assert app.check_action("toggle_rx", ())
+            assert app.check_action("clear_shown", ())
+            assert app.check_action("firmware", ())
+            # Bus Monitor tab: list shortcuts hidden, filter + firmware shown
+            tc.active = "bustab"
+            await pilot.pause()
+            assert not app.check_action("toggle_rx", ())
+            assert not app.check_action("activate", ())
+            assert app.check_action("focus_filter", ())
+            assert app.check_action("firmware", ())
+            # Firmware tab: the jump-to-Firmware shortcut is pointless here
+            tc.active = "fwtab"
+            await pilot.pause()
+            assert not app.check_action("firmware", ())
+            assert app.check_action("connection", ())
+    _run(scenario)
+
+
+def test_footer_hides_gateway_shortcuts_when_disconnected():
+    async def scenario():
+        app = ActuiSenseApp(None)  # starts disconnected (Connection dialog opens)
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            for action in ("toggle_rx", "activate", "commit", "cycle_mode",
+                           "firmware", "toggle_poll"):
+                assert not app.check_action(action, ())
+            assert app.check_action("connection", ())
+            assert app.check_action("quit", ())
+    _run(scenario)
+
+
+def test_clear_shown_disables_all_enabled_pgns():
+    """Shift+C unconditionally clears RX+TX for the shown PGNs from any mixed state
+    in one pass (no select-all-first toggle dance), and is a no-op when all clear."""
+    async def scenario():
+        gw = FakeGateway()
+        app = ActuiSenseApp(gw)
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            assert app.rx_enabled and app.tx_enabled  # mixed state from the fake gw
+            app.action_clear_shown()
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            assert app.rx_enabled == set()
+            assert app.tx_enabled == set()
+            assert app.dirty is True
+            assert (PgnList.RX, 60928, False) in gw.calls
+            for pgn in (127512, 127514, 127751):
+                assert (PgnList.TX, pgn, False) in gw.calls
+            # nothing enabled -> a second press writes nothing more
+            n_calls = len(gw.calls)
+            app.action_clear_shown()
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            assert len(gw.calls) == n_calls
+    _run(scenario)
+
+
+def test_activity_log_view_is_trimmed_to_cap():
+    """The visible log table must stay at LOG_VIEW_MAX rows, dropping the oldest."""
+    from actuisense.device import LogEntry
+    from actuisense.tui import LOG_VIEW_MAX
+
+    async def scenario():
+        gw = FakeGateway()
+        app = ActuiSenseApp(gw)
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            extra = 25
+            for i in range(1, LOG_VIEW_MAX + extra + 1):
+                app._append_log(LogEntry(i, "00:00:00", "poll", "OK"))
+            await pilot.pause()
+            logt = app.query_one("#logtable")
+            assert logt.row_count == LOG_VIEW_MAX
+            # the oldest rows were the ones dropped
+            assert int(logt.get_row_at(0)[0]) == extra + 1
+    _run(scenario)
+
+
 def test_header_click_sorts_column_asc_then_desc():
     from rich.text import Text
     from textual.widgets import DataTable
