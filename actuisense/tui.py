@@ -637,7 +637,12 @@ class ActuiSenseApp(App):
     # -- status & log -------------------------------------------------------
 
     def set_status(self, text: str) -> None:
-        self.query_one("#status", Label).update(text)
+        # Guarded: workers/timers can deliver a status update while the widget tree
+        # is not queryable (mid-teardown, or a modal screen on top) -- drop it then.
+        try:
+            self.query_one("#status", Label).update(text)
+        except Exception:
+            pass
 
     def _busload_tick(self) -> None:
         if self.gw is not None or self._bus_source is not None:

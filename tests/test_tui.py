@@ -283,14 +283,23 @@ def test_header_click_sorts_column_asc_then_desc():
 
 def test_connection_initial_kind_and_serial_detection():
     from actuisense.tui import ConnectionScreen
-    assert ConnectionScreen()._looks_serial("/dev/ttyUSB0")
-    assert ConnectionScreen()._looks_serial("COM5")
-    assert not ConnectionScreen()._looks_serial("10.0.0.202")
-    assert not ConnectionScreen()._looks_serial("tcp://host:60002")
-    assert ConnectionScreen(current_target="tcp://10.0.0.5:60002")._initial_kind() == "tcp"
-    assert ConnectionScreen(current_target="/dev/ttyUSB0")._initial_kind() == "serial"
-    assert ConnectionScreen(current_target="10.0.0.202")._initial_kind() == "wago"
-    assert ConnectionScreen()._initial_kind() == "serial"
+    # Python 3.9: Textual widgets create asyncio primitives at construction, which
+    # need a current event loop (and earlier asyncio.run() calls left none set).
+    # Later Pythons construct them lazily, so this is a no-op there.
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        assert ConnectionScreen()._looks_serial("/dev/ttyUSB0")
+        assert ConnectionScreen()._looks_serial("COM5")
+        assert not ConnectionScreen()._looks_serial("10.0.0.202")
+        assert not ConnectionScreen()._looks_serial("tcp://host:60002")
+        assert ConnectionScreen(current_target="tcp://10.0.0.5:60002")._initial_kind() == "tcp"
+        assert ConnectionScreen(current_target="/dev/ttyUSB0")._initial_kind() == "serial"
+        assert ConnectionScreen(current_target="10.0.0.202")._initial_kind() == "wago"
+        assert ConnectionScreen()._initial_kind() == "serial"
+    finally:
+        asyncio.set_event_loop(None)
+        loop.close()
 
 
 def test_connection_type_switch_drops_mismatched_value():
