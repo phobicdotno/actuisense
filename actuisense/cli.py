@@ -40,10 +40,28 @@ def _add_wago(sp: argparse.ArgumentParser) -> None:
     sp.add_argument("--iface", default="can0", help="CAN interface to listen on (default can0)")
 
 
+class _VersionAction(argparse.Action):
+    """`--version`: print the running version, then check GitHub for a newer release
+    (fail-silent, 3 s timeout — offline just prints the version)."""
+
+    def __init__(self, option_strings, dest, **kw):
+        kw.setdefault("nargs", 0)
+        kw.setdefault("help", "show the version, and whether a newer release exists")
+        super().__init__(option_strings, dest, **kw)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        print("actuisense " + __version__)
+        from .update import RELEASES_URL, update_available
+        tag = update_available()
+        if tag:
+            print("update available: %s   ->   %s" % (tag, RELEASES_URL))
+        parser.exit()
+
+
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="actuisense",
                                  description="Configure Actisense NMEA 2000 gateways from the terminal.")
-    ap.add_argument("--version", action="version", version="actuisense " + __version__)
+    ap.add_argument("--version", action=_VersionAction)
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     p_info = sub.add_parser("info", help="show hardware/operating mode and the Rx/Tx PGN lists")

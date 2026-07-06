@@ -52,6 +52,10 @@ pipx install ".[wago]"          # or:  pip install -e ".[wago]"
 ```
 
 Use `pip install --user "<same spec>"` instead of `pipx` if you prefer.
+
+The TUI checks GitHub once at startup for a newer release (fail-silent, works fine
+offline) and shows a toast when one exists; `actuisense --version` prints the same
+hint. Opt out with `ACTUISENSE_NO_UPDATE_CHECK=1`.
 Requires Python ≥ 3.9, `pyserial`, and `textual` (plus `paramiko` for `[wago]`).
 
 ## Use

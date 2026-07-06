@@ -17,6 +17,10 @@ versions are `MAJOR.MINOR.PATCH`.
   TCP), so a drifted link is visible at a glance. The CLI `fw` summary also prints
   the link baud. New `Transport.baud` / `SerialTransport.baud` / `Gateway.baud`
   properties back this.
+- **Newer-version check**: the TUI checks GitHub releases once at startup (background
+  thread, 3 s timeout, fail-silent — offline is fine) and toasts when a newer release
+  exists; `actuisense --version` prints the same hint. Opt out with
+  `ACTUISENSE_NO_UPDATE_CHECK=1` (tests set it — CI never touches the network).
 
 ## [0.6.1] - 2026-07-05
 

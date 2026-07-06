@@ -530,6 +530,22 @@ class ActuiSenseApp(App):
         else:
             self.set_status("not connected — press Ctrl+O to choose a connection")
             self.action_connection()
+        self.check_update()
+
+    @work(thread=True, group="update")
+    def check_update(self) -> None:
+        """One fail-silent GitHub query at startup; toast when a newer release exists.
+        Opt out with ACTUISENSE_NO_UPDATE_CHECK=1 (tests set this — no network in CI)."""
+        import os
+        if os.environ.get("ACTUISENSE_NO_UPDATE_CHECK"):
+            return
+        from .update import update_available
+        tag = update_available()
+        if tag:
+            self.call_from_thread(
+                self.notify,
+                "Update available: %s (running v%s) — pipx upgrade actuisense"
+                % (tag, __version__), timeout=12)
 
     def on_unmount(self) -> None:
         self._stop_bus()
