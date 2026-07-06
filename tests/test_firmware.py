@@ -197,6 +197,51 @@ def test_push_firmware_unknown_file_uses_placeholder_crc():
     assert crc == zlib.crc32(data) & 0xFFFFFFFF
 
 
+def test_gateway_baud_property():
+    from actuisense.device import Gateway
+    dev = _FakeDevice()
+    assert Gateway(dev).baud is None      # transport without a baud (TCP/mock) -> None
+    dev.baud = 38400
+    assert Gateway(dev).baud == 38400
+
+
+def test_cmd_fw_refuses_wrong_baud(capsys):
+    """fw pre-flight: a serial link not at FW_BAUD is refused before anything is sent."""
+    from actuisense.cli import cmd_fw
+    from actuisense.device import Gateway
+    dev = _FakeDevice()
+    dev.baud = 38400
+    rc = cmd_fw(Gateway(dev), "irrelevant.zip", None, True)
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "38400" in err and "115200" in err and "--force-baud" in err
+    assert not dev.written        # nothing reached the device
+
+
+def test_cmd_fw_force_baud_overrides(tmp_path):
+    from actuisense.cli import cmd_fw
+    from actuisense.device import Gateway
+    zp = tmp_path / "fw.zip"
+    zp.write_bytes(bytes(500))
+    dev = _FakeDevice()
+    dev.baud = 38400
+    rc = cmd_fw(Gateway(dev), str(zp), 0xC2340641, True, force_baud=True)
+    assert rc == 0
+    assert dev.written            # transfer ran
+
+
+def test_cmd_fw_correct_baud_passes_preflight(tmp_path):
+    from actuisense.cli import cmd_fw
+    from actuisense.device import Gateway
+    zp = tmp_path / "fw.zip"
+    zp.write_bytes(bytes(500))
+    dev = _FakeDevice()
+    dev.baud = proto.FW_BAUD      # 115200
+    rc = cmd_fw(Gateway(dev), str(zp), 0xC2340641, True)
+    assert rc == 0
+    assert dev.written
+
+
 def test_parse_product_info_strings():
     from actuisense.protocol import parse_product_info_strings
     def field(s): return s.encode("ascii") + b"\xff" * (32 - len(s))

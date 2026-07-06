@@ -3,6 +3,21 @@
 All notable changes to AcTuiSense. Format loosely follows Keep a Changelog;
 versions are `MAJOR.MINOR.PATCH`.
 
+## [0.6.2] - 2026-07-06
+
+### Added
+- **115200 baud pre-flight for firmware updates**: both the CLI `fw` command and the
+  TUI Firmware tab now refuse to flash when the serial link is not at 115200 baud
+  (`FW_BAUD`, the NGX-1-USB factory rate). A gateway whose stored baud drifted (seen
+  in the wild: 115200 → 38400) half-works at other speeds and produced very confusing
+  failed-update sessions. The error says how to normalize (`actuisense baud` /
+  Toolkit *Hardware Config*) and reconnect; `fw --force-baud` overrides.
+- **Mode + baud in the TUI header**: the header sub-title now reads
+  `MODE: <mode> • <rate> baud • v<version>` for serial connections (baud omitted for
+  TCP), so a drifted link is visible at a glance. The CLI `fw` summary also prints
+  the link baud. New `Transport.baud` / `SerialTransport.baud` / `Gateway.baud`
+  properties back this.
+
 ## [0.6.1] - 2026-07-05
 
 ### Changed

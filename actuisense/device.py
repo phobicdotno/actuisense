@@ -61,10 +61,16 @@ class Transport:
     def name(self) -> str:                               # pragma: no cover
         return "?"
 
+    @property
+    def baud(self) -> Optional[int]:
+        """Serial link speed, or None when the transport has no baud (TCP)."""
+        return None
+
 
 class SerialTransport(Transport):
     def __init__(self, port: str, baud: int = 115200, read_timeout: float = 0.1):
         self._port = port
+        self._baud = baud
         self._ser = serial.Serial(
             port, baud, bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE,
             stopbits=serial.STOPBITS_ONE, timeout=read_timeout,
@@ -86,6 +92,10 @@ class SerialTransport(Transport):
     @property
     def name(self) -> str:
         return self._port
+
+    @property
+    def baud(self) -> Optional[int]:
+        return self._baud
 
 
 class TcpTransport(Transport):
@@ -165,6 +175,11 @@ class Gateway:
     @property
     def name(self) -> str:
         return self.t.name
+
+    @property
+    def baud(self) -> Optional[int]:
+        """Serial link baud of the underlying transport (None for TCP/mock)."""
+        return getattr(self.t, "baud", None)
 
     # -- low level ----------------------------------------------------------
 

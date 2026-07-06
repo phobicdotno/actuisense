@@ -438,6 +438,12 @@ def parse_n2k_recv(frame: Frame) -> Optional[N2kMessage]:
 
 FW_CHUNK = 200   # 0xC8: the data-chunk / window size MDT_START advertises
 
+# The NGX-1-USB factory serial baud. Firmware transfers must run at this rate:
+# a gateway whose serial baud drifted (e.g. to 38400) will half-work at other
+# speeds and has caused very confusing failed-update sessions. Enforced as a
+# pre-flight check by both the CLI `fw` command and the TUI Firmware tab.
+FW_BAUD = 115200
+
 
 class Ft(IntEnum):
     """Subtype (payload[0]) of a 0xC1 FT frame."""

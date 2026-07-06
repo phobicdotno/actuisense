@@ -114,6 +114,13 @@ XON/XOFF flow control; the device unwraps and decrypts the inner `.actp` itself.
   **rejected** by the device (nothing is flashed).
 - The gateway must be in **Convert** mode at the chosen baud — set it directly with
   `actuisense mode convert` (no NMEA Reader / power-cycle needed).
+- **115200 baud pre-flight**: firmware updates are refused when the serial link is
+  not at 115200 baud (the NGX-1-USB factory rate). A gateway whose stored baud has
+  drifted (e.g. to 38400) half-works at other speeds and has caused very confusing
+  failed-update sessions — normalize it first (`actuisense baud` or the Toolkit
+  *Hardware Config* tab), reconnect at 115200, then flash. CLI escape hatch:
+  `--force-baud`. The TUI header always shows the current **mode + baud** so a
+  drifted link is visible at a glance.
 
 ⚠️ Do not remove power until the gateway's LED returns to its normal pulse. Protocol
 details: [`docs/reverse-engineering/bstft/`](docs/reverse-engineering/bstft/).

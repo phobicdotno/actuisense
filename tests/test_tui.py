@@ -567,6 +567,63 @@ def test_firmware_tab_reads_current_fw_on_connect():
     _run(scenario)
 
 
+def test_firmware_flash_blocked_on_wrong_baud(tmp_path):
+    """Pre-flight guard: a serial link not at FW_BAUD blocks the flash outright."""
+    from textual.widgets import Input, Static
+
+    async def scenario():
+        zip_path = tmp_path / "NGX-1-Release-vX.zip"
+        zip_path.write_bytes(bytes(500))
+        gw = FakeGateway()
+        gw.baud = 38400                     # drifted link
+        app = ActuiSenseApp(gw)
+        async with app.run_test() as pilot:
+            app._stop_gw_bus()
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            app.action_firmware()
+            await pilot.pause()
+            app.query_one("#fw-path", Input).value = str(zip_path)
+            app.query_one("#fw-crc", Input).value = "0xC2340641"
+            app._start_flash()
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            fw = [c for c in gw.calls if isinstance(c, tuple) and c and c[0] == "fw"]
+            assert not fw, "flash must be blocked at the wrong baud"
+            status = str(app.query_one("#fw-status", Static).render())
+            assert "38400" in status and "115200" in status
+    _run(scenario)
+
+
+def test_subtitle_shows_mode_and_baud():
+    async def scenario():
+        gw = FakeGateway()
+        gw.baud = 115200
+        app = ActuiSenseApp(gw)
+        async with app.run_test() as pilot:
+            app._stop_gw_bus()
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            app.render_status()
+            assert "MODE: RX_ALL" in app.sub_title
+            assert "115200 baud" in app.sub_title
+    _run(scenario)
+
+
+def test_subtitle_omits_baud_without_serial_link():
+    async def scenario():
+        gw = FakeGateway()                  # no .baud attr (TCP/mock)
+        app = ActuiSenseApp(gw)
+        async with app.run_test() as pilot:
+            app._stop_gw_bus()
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            app.render_status()
+            assert "MODE: RX_ALL" in app.sub_title
+            assert "baud" not in app.sub_title
+    _run(scenario)
+
+
 def test_busload_meter():
     from actuisense.tui import _BusLoad
     m = _BusLoad(window=3.0)

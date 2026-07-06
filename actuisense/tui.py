@@ -37,7 +37,7 @@ from textual.widgets import (Button, DataTable, DirectoryTree, Footer, Header,
 
 from . import __version__
 from .pgndb import PgnDb
-from .protocol import OperatingMode, PgnList, known_firmware_crc
+from .protocol import FW_BAUD, OperatingMode, PgnList, known_firmware_crc
 
 CHECK = "[X]"
 UNCHECK = "[ ]"
@@ -660,7 +660,9 @@ class ActuiSenseApp(App):
                 self.set_status("not connected — press Ctrl+O")
             return
         mode = self.mode.name if self.mode else "?"
-        self.sub_title = "MODE: %s   •   v%s" % (mode, __version__)
+        link_baud = getattr(self.gw, "baud", None)
+        baud_part = "   •   %d baud" % link_baud if link_baud is not None else ""
+        self.sub_title = "MODE: %s%s   •   v%s" % (mode, baud_part, __version__)
         flags = ("  ●UNSAVED" if self.dirty else "") + ("  ‖poll paused" if self.poll_paused else "")
         self.set_status("%s   mode=%s   RX:%d  TX:%d%s%s"
                         % (self.gw.name, mode, len(self.rx_enabled), len(self.tx_enabled), flags, load))
@@ -781,6 +783,16 @@ class ActuiSenseApp(App):
         """Validate inputs on the UI thread, then kick off the firmware worker."""
         if self.gw is None:
             self.notify("Connect to a gateway first (Ctrl+O).", severity="warning")
+            return
+        # Pre-flight: firmware transfers must run at the factory serial baud. A
+        # drifted baud (seen in the wild: 115200 -> 38400) half-works and has
+        # caused very confusing failed updates. CLI `fw --force-baud` overrides.
+        link_baud = getattr(self.gw, "baud", None)
+        if link_baud is not None and link_baud != FW_BAUD:
+            self.notify("Serial link is at %d baud — firmware updates require %d. "
+                        "Set the gateway back to %d (Hardware Config / `actuisense baud`) "
+                        "and reconnect." % (link_baud, FW_BAUD, FW_BAUD), severity="error")
+            self._fw_status("blocked: link at %d baud, need %d" % (link_baud, FW_BAUD))
             return
         import os
         path = self.query_one("#fw-path", Input).value.strip()

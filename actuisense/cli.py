@@ -20,7 +20,7 @@ from typing import List, Optional
 from . import __version__
 from .device import Gateway, GatewayError, open_transport
 from .pgndb import PgnDb
-from .protocol import OperatingMode, PgnList, known_firmware_crc
+from .protocol import FW_BAUD, OperatingMode, PgnList, known_firmware_crc
 
 _WHICH = {"rx": PgnList.RX, "tx": PgnList.TX}
 _MODE = {"filter": OperatingMode.FILTER, "rxall": OperatingMode.RX_ALL,
@@ -94,6 +94,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_fw.add_argument("--crc", help="end-of-transfer CRC32 override, e.g. 0xC2340641 "
                                     "(from a Toolkit *-bstft.log; needed until the CRC algorithm is confirmed)")
     p_fw.add_argument("-y", "--yes", action="store_true", help="skip the confirmation prompt")
+    p_fw.add_argument("--force-baud", action="store_true",
+                      help="flash even when the serial link is not at %d baud "
+                           "(NOT recommended — a drifted baud has caused failed updates)" % FW_BAUD)
 
     p_tui = sub.add_parser("tui", help="launch the full-screen terminal UI")
     _add_conn(p_tui, required=False)  # no -p: start disconnected, pick via Connection dialog
@@ -337,8 +340,21 @@ class _ProgressBar:
             sys.stderr.flush()
 
 
-def cmd_fw(gw: Gateway, zip_path: str, crc: Optional[int], assume_yes: bool) -> int:
+def cmd_fw(gw: Gateway, zip_path: str, crc: Optional[int], assume_yes: bool,
+           force_baud: bool = False) -> int:
     """Push an Actisense firmware .zip to the connected gateway (NGX-1/WGX-1) over BstFt."""
+    # Pre-flight: firmware transfers must run at the factory serial baud. A gateway
+    # whose stored baud drifted (seen in the wild: 115200 -> 38400) half-works at
+    # the wrong rate and produces very confusing failed updates.
+    link_baud = gw.baud
+    if link_baud is not None and link_baud != FW_BAUD and not force_baud:
+        print("error: serial link is at %d baud, but firmware updates require %d."
+              % (link_baud, FW_BAUD), file=sys.stderr)
+        print("       If the gateway itself is configured for %d, set it back to %d first\n"
+              "       (Toolkit/NMEA Reader 'Hardware Config' tab, or `actuisense baud`),\n"
+              "       then reconnect with -b %d. Use --force-baud to override."
+              % (link_baud, FW_BAUD, FW_BAUD), file=sys.stderr)
+        return 2
     try:
         with open(zip_path, "rb") as f:
             data = f.read()
@@ -353,7 +369,8 @@ def cmd_fw(gw: Gateway, zip_path: str, crc: Optional[int], assume_yes: bool) -> 
         if crc is not None:
             crc_src = "auto-filled from filename"
     print("Firmware update")
-    print("  gateway : %s" % gw.name)
+    print("  gateway : %s%s" % (gw.name,
+                                ("  (%d baud)" % link_baud) if link_baud is not None else ""))
     print("  file    : %s  (%d bytes)" % (name, size))
     if crc is not None:
         print("  crc     : 0x%08X (%s)" % (crc, crc_src))
@@ -450,7 +467,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     print("error: bad --crc value %r (expected e.g. 0xC2340641)" % args.crc,
                           file=sys.stderr)
                     return 2
-                return cmd_fw(gw, args.zipfile, crc, args.yes)
+                return cmd_fw(gw, args.zipfile, crc, args.yes, args.force_baud)
     except GatewayError as e:
         print("gateway error: %s" % e, file=sys.stderr)
         return 1
