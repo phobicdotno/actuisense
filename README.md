@@ -60,7 +60,7 @@ policy), run it through the launcher instead:
 py -m pipx install "actuisense[wago] @ git+https://github.com/phobicdotno/actuisense.git"
 
 # no git installed? install from the GitHub zip archive instead:
-py -m pipx install "actuisense[wago] @ https://github.com/phobicdotno/actuisense/archive/refs/heads/main.zip"
+py -m pipx install "actuisense[wago] @ https://github.com/phobicdotno/actuisense/archive/refs/heads/master.zip"
 ```
 
 The TUI checks GitHub once at startup for a newer release (fail-silent, works fine
