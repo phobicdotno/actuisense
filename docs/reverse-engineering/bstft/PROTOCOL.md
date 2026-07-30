@@ -52,9 +52,20 @@ The first DATA chunk begins `50 4B 03 04` (`PK\x03\x04`, ZIP local-file-header) 
    - subtype `0x00`=Start, status `0x01`=OK, NAME `3B 00 2E E7 04 00 00 00` (model `0x3B`=59, serial `0x04E72E`=321326).
 3. **Data plane** — raw `.zip` bytes in 200-byte windows, sliding-window flow control:
    - **TX `0xC1` MDT_DATA** `C1 D0 00 00 00 <offset LE32> 00 <200 data bytes>` — `offset` = byte position in the file (0, 200, 400, …).
-   - **RX `0xC1` FT ACK** `C1 0C 01 00 00 <ackIndex LE32> 01 00 00 00 00` — `ackIndex` = bytes acknowledged.
-   - **RX `0xC1` FT XOFF** (subtype `0x11`) — device buffer full, pause (≈ every 64 600 B).
+   - **RX `0xC1` FT ACK** `C1 0C 01 00 00 <ackIndex LE32> 01 00 00 00 00` — the device ACKs **every** window; `ackIndex` = offset of the acked window.
+   - **RX `0xC1` FT XOFF** (subtype `0x11`) — flash-erase pause, held ~1.0–1.1 s (every 64 600 B exactly: 64 600, 129 200, 193 800, …).
    - **RX `0xC1` FT XON** (subtype `0x10`) — resume.
+
+   **ACK pacing (load-bearing):** across the whole log Toolkit never has more than
+   **3 windows (600 B) unacknowledged** (`data_index − ack_index ≤ 600`; at every XOFF,
+   `client_index` is exactly one window ahead of `device_index`). Throughput is therefore
+   ACK-bound at ~4.4 KB/s, well under the 11.5 KB/s wire rate at 115200. This is not
+   optional: a sender that streams at wire speed has ~10 KB+ queued in OS/USB TX buffers
+   when the erase-pause XOFF arrives; those keep transmitting into the paused device,
+   overrun its receive buffer, and it then **holds XOFF forever** — the transfer dies at
+   the first erase (~64.6 KB, ~4 % of this file), deterministically. Observed in the
+   field on an NGX-1 (S/N 337253); fixed in `actuisense` by pacing to ACKs with a
+   3-window credit.
 4. **TX `MDT_END`** `[22]` `01 …00… 9A 10 20 00 41 06 34 C2`
    - finalize flag `0x01` + **fileSize LE32** + **CRC32 LE32** `41 06 34 C2` = `0xC2340641`.
 5. **RX `0xA9` BST MDT End** `A9 0C 01 01 <NAME>` — subtype `0x01`=End, status `0x01`=OK.

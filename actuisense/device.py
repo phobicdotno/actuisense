@@ -457,7 +457,8 @@ class Gateway:
                       chunk: int = proto.FW_CHUNK,
                       progress: Optional[Callable[[int, int], None]] = None,
                       start_timeout: float = 10.0, end_timeout: float = 120.0,
-                      drain_every: int = 16000, xoff_wait: float = 15.0) -> int:
+                      window: int = 3, ack_timeout: float = 5.0,
+                      xoff_wait: float = 15.0) -> int:
         """Push an Actisense firmware .zip to the gateway over BstFt (NGX-1 / WGX-1).
 
         `data` is the raw .zip bytes, `filename` its basename. The whole zip is streamed;
@@ -465,11 +466,15 @@ class Gateway:
         checksum (pass a known value for a guaranteed accept; default uses the placeholder
         `protocol.firmware_crc`). `progress(sent, total)` is called as chunks go out.
 
-        Honours the device's XON/XOFF flow control: chunks stream back-to-back, input is
-        drained every `drain_every` bytes, and on XOFF the sender blocks for XON (up to
-        `xoff_wait`s). Returns the CRC that was sent. Raises GatewayError if the device
-        does not acknowledge START or END (END failure usually means a CRC/image reject --
-        which is safe, nothing is flashed). Holds the transport lock for the whole transfer.
+        The device ACKs every chunk and pauses ~1s for a flash erase every ~64.6KB
+        (raising XOFF); the Toolkit capture never has more than 3 chunks unacknowledged,
+        and exceeding that overruns the device's receive buffer during the erase pause,
+        after which it holds XOFF forever. So the stream is ACK-paced: at most `window`
+        chunks in flight, blocking up to `ack_timeout`s for ACK progress and up to
+        `xoff_wait`s for XON after an XOFF. Returns the CRC that was sent. Raises
+        GatewayError if the device does not acknowledge START or END (END failure
+        usually means a CRC/image reject -- which is safe, nothing is flashed).
+        Holds the transport lock for the whole transfer.
         """
         size = len(data)
         if crc is None:
@@ -478,8 +483,9 @@ class Gateway:
             crc = proto.firmware_crc(data)                   # placeholder (unconfirmed algorithm)
         crc &= 0xFFFFFFFF
         paused = [False]
+        acked = [0]          # bytes confirmed by FT ACK (ack index + chunk length)
 
-        def _drain(timeout: float) -> None:
+        def _pump(timeout: float) -> None:
             end = time.monotonic() + timeout
             first = True
             while first or time.monotonic() < end:
@@ -491,11 +497,13 @@ class Gateway:
                     ft = proto.parse_ft(f)
                     if ft is None:
                         continue
-                    sub = ft[0]
+                    sub, idx = ft
                     if sub == int(proto.Ft.XOFF):
                         paused[0] = True
                     elif sub == int(proto.Ft.XON):
                         paused[0] = False
+                    elif sub == int(proto.Ft.ACK):
+                        acked[0] = max(acked[0], idx + chunk)
 
         try:
             with self._lock:
@@ -506,26 +514,32 @@ class Gateway:
                         "no MDT start response -- check the device is connected, listed in "
                         "Convert mode, and the baud matches")
                 offset = 0
-                since_drain = 0
                 while offset < size:
                     if paused[0]:
                         deadline = time.monotonic() + xoff_wait
                         while paused[0] and time.monotonic() < deadline:
-                            _drain(0.2)
+                            _pump(0.2)
                         if paused[0]:
                             raise GatewayError(
                                 "device held XOFF for %.0fs -- transfer aborted "
                                 "(nothing was flashed)" % xoff_wait)
-                        since_drain = 0
+                        continue
+                    if offset - acked[0] >= window * chunk:
+                        before = acked[0]
+                        deadline = time.monotonic() + ack_timeout
+                        while (acked[0] == before and not paused[0]
+                               and time.monotonic() < deadline):
+                            _pump(0.05)
+                        if acked[0] == before and not paused[0]:
+                            raise GatewayError(
+                                "no ACK from device for %.0fs at offset %d -- transfer "
+                                "aborted (nothing was flashed)" % (ack_timeout, offset))
                         continue
                     self.t.write(proto.build_mdt_data(offset, data[offset:offset + chunk]))
                     offset += chunk
-                    since_drain += chunk
                     if progress is not None:
                         progress(min(offset, size), size)
-                    if since_drain >= drain_every:
-                        since_drain = 0
-                        _drain(0.0)  # one non-waiting read to catch XOFF before the buffer overruns
+                    _pump(0.0)
                 self.t.write(proto.build_mdt_end(size, crc))
                 if not self._await_mdt(0x01, end_timeout):
                     raise GatewayError(

@@ -126,8 +126,10 @@ actuisense baud        -p COM5                   # show serial baud codes; --set
 
 `actuisense fw <firmware.zip>` (and the **Firmware** tab in the TUI) push an Actisense
 firmware `.zip` to the gateway over the reverse-engineered **BstFt** protocol — no
-Actisense Toolkit needed. The whole `.zip` is streamed in 200-byte windows with
-XON/XOFF flow control; the device unwraps and decrypts the inner `.actp` itself.
+Actisense Toolkit needed. The whole `.zip` is streamed in 200-byte windows, ACK-paced
+(≤3 windows in flight, as Toolkit does) with XON/XOFF flow control around the device's
+periodic flash-erase pauses; the device unwraps and decrypts the inner `.actp` itself.
+Expect ~8 minutes for a full image — the device, not the wire, sets the pace.
 
 - **Progress bar** with percent / KB / rate / ETA, and a confirmation prompt.
 - **CRC**: the Actisense end-of-transfer CRC-32 uses a non-standard polynomial that

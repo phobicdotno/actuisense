@@ -91,12 +91,15 @@ def test_parse_ft_ack_xon_xoff():
 # ---- end-to-end push over a fake transport ---------------------------------
 
 class _FakeDevice:
-    """Minimal NGX stand-in: ACKs MDT_START and MDT_END, records data frames."""
+    """Minimal NGX stand-in: ACKs MDT_START/MDT_END and every DATA frame (the real
+    device ACKs each 200-byte window; the sender paces on those ACKs)."""
 
     def __init__(self):
         self.written = bytearray()
         self._out = bytearray()
         self._dec = FrameDecoder()
+        self.max_unacked = 0      # high-water mark of unacked bytes seen in flight
+        self._acked = 0
 
     def write(self, data):
         self.written += data
@@ -106,6 +109,14 @@ class _FakeDevice:
                     self._out += proto.build_frame(proto.MDT, bytes((0x00, 0x01)) + bytes(12))
                 elif f.payload[:1] == b"\x01":                            # END request
                     self._out += proto.build_frame(proto.MDT, bytes((0x01, 0x01)) + bytes(12))
+            elif f.command == proto.FT and f.payload[:1] == bytes((proto.Ft.DATA,)):
+                off = int.from_bytes(f.payload[3:7], "little")
+                sent = off + len(f.payload) - 8
+                self.max_unacked = max(self.max_unacked, sent - self._acked)
+                self._out += proto.build_frame(
+                    proto.FT, bytes((proto.Ft.ACK, 0, 0)) + off.to_bytes(4, "little")
+                    + bytes.fromhex("0100000000"))
+                self._acked = sent
 
     def read(self, n=4096):
         if self._out:
@@ -164,8 +175,41 @@ def test_push_firmware_aborts_on_persistent_xoff():
     dev = _StuckXoffDevice()
     gw = Gateway(dev)
     with pytest.raises(GatewayError, match="XOFF"):
-        gw.push_firmware(data, "fw.zip", crc=0xC2340641,
-                         drain_every=200, xoff_wait=0.3)
+        gw.push_firmware(data, "fw.zip", crc=0xC2340641, xoff_wait=0.3)
+
+
+def test_push_firmware_is_ack_paced():
+    """The sender must never have more than `window` chunks unacknowledged: the NGX-1
+    pauses ~1s for a flash erase every ~64.6KB, and anything beyond the 3-window credit
+    observed in the Toolkit capture overruns its receive buffer during that pause
+    (device then holds XOFF forever -- seen in the field at the first erase, ~4%)."""
+    from actuisense.device import Gateway
+
+    data = bytes((i * 3 + 1) & 0xFF for i in range(5000))    # 25 windows
+    dev = _FakeDevice()
+    Gateway(dev).push_firmware(data, "fw.zip", crc=0xC2340641)
+    assert dev.max_unacked <= 3 * 200
+
+
+def test_push_firmware_aborts_when_device_stops_acking():
+    """A device that never ACKs must abort once the window is exhausted, not blast on."""
+    from actuisense.device import Gateway, GatewayError
+
+    class _SilentDevice(_FakeDevice):
+        def write(self, data):
+            self.written += data
+            for f in self._dec.feed(data):
+                if f.command == proto.MDT and len(f.payload) >= 3 and f.payload[2] == 0x44:
+                    self._out += proto.build_frame(proto.MDT, bytes((0x00, 0x01)) + bytes(12))
+                # DATA frames: recorded, never ACKed
+
+    data = bytes(2000)
+    dev = _SilentDevice()
+    with pytest.raises(GatewayError, match="no ACK"):
+        Gateway(dev).push_firmware(data, "fw.zip", crc=0xC2340641, ack_timeout=0.3)
+    # only the credit window went out before the abort
+    ft = [f for f in decode_all(bytes(dev.written)) if f.command == proto.FT]
+    assert len(ft) == 3
 
 
 def test_push_firmware_default_crc_is_placeholder_zlib():
