@@ -63,6 +63,15 @@ py -m pipx install "actuisense[wago] @ git+https://github.com/phobicdotno/actuis
 py -m pipx install "actuisense[wago] @ https://github.com/phobicdotno/actuisense/archive/refs/heads/master.zip"
 ```
 
+If endpoint policy/AV also blocks the installed `actuisense.exe` shim
+("Access is denied" / "No application is associated"), skip exe shims entirely
+and run the module through Python:
+
+```powershell
+py -m pip install --user "actuisense[wago] @ https://github.com/phobicdotno/actuisense/archive/refs/heads/master.zip"
+py -m actuisense tui
+```
+
 The TUI checks GitHub once at startup for a newer release (fail-silent, works fine
 offline) and shows a toast when one exists; `actuisense --version` prints the same
 hint. Opt out with `ACTUISENSE_NO_UPDATE_CHECK=1`.
