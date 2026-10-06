@@ -102,8 +102,8 @@ traffic straight off the wire — the ground truth for what the gateway is actua
 transmitting. Pick *WAGO PLC (can0)* in the Connection dialog, or from the CLI:
 
 ```bash
-actuisense monitor --host 10.0.0.202 -u root -P wago          # decoded can0 dump
-actuisense monitor --host 10.0.0.202 -u root -P wago --iface can1 -n 50
+actuisense monitor --host 192.168.1.10 -u root -P wago          # decoded can0 dump
+actuisense monitor --host 192.168.1.10 -u root -P wago --iface can1 -n 50
 ```
 
 Read-only: it never writes to the bus or the gateway. Needs the `wago` extra

@@ -310,7 +310,7 @@ versions are `MAJOR.MINOR.PATCH`.
 
 ### Changed
 - Connection dialog: the Port/host **placeholder hint** now matches the selected
-  Type (serial -> `/dev/ttyUSB0`, tcp -> `tcp://host:60002`, wago -> `10.0.0.202`)
+  Type (serial -> `/dev/ttyUSB0`, tcp -> `tcp://host:60002`, wago -> `192.168.1.10`)
   instead of always listing all three.
 
 ## [0.3.4] - 2026-06-18

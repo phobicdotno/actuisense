@@ -291,11 +291,11 @@ def test_connection_initial_kind_and_serial_detection():
     try:
         assert ConnectionScreen()._looks_serial("/dev/ttyUSB0")
         assert ConnectionScreen()._looks_serial("COM5")
-        assert not ConnectionScreen()._looks_serial("10.0.0.202")
+        assert not ConnectionScreen()._looks_serial("192.168.1.10")
         assert not ConnectionScreen()._looks_serial("tcp://host:60002")
-        assert ConnectionScreen(current_target="tcp://10.0.0.5:60002")._initial_kind() == "tcp"
+        assert ConnectionScreen(current_target="tcp://192.168.1.50:60002")._initial_kind() == "tcp"
         assert ConnectionScreen(current_target="/dev/ttyUSB0")._initial_kind() == "serial"
-        assert ConnectionScreen(current_target="10.0.0.202")._initial_kind() == "wago"
+        assert ConnectionScreen(current_target="192.168.1.10")._initial_kind() == "wago"
         assert ConnectionScreen()._initial_kind() == "serial"
     finally:
         asyncio.set_event_loop(None)
@@ -389,7 +389,7 @@ def test_tabs_follow_connection_mode():
     from textual.widgets import TabbedContent
 
     class _FakeBusSource:
-        name = "can0@10.0.0.202"
+        name = "can0@192.168.1.10"
 
         def frames(self):
             return iter([])

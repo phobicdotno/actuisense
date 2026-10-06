@@ -34,7 +34,7 @@ def _add_conn(sp: argparse.ArgumentParser, required: bool = True) -> None:
 
 
 def _add_wago(sp: argparse.ArgumentParser) -> None:
-    sp.add_argument("--host", required=True, help="WAGO PLC host/IP (e.g. 10.0.0.202)")
+    sp.add_argument("--host", required=True, help="WAGO PLC host/IP (e.g. 192.168.1.10)")
     sp.add_argument("-u", "--user", required=True, help="SSH username (e.g. root)")
     sp.add_argument("-P", "--password", required=True, help="SSH password")
     sp.add_argument("--iface", default="can0", help="CAN interface to listen on (default can0)")

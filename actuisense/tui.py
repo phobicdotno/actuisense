@@ -130,7 +130,7 @@ class ConnectionScreen(ModalScreen):
             yield Static("Port / host", classes="conn-label", id="conn-target-label")
             yield Input(
                 value=self._current_target or first_real or "",
-                placeholder="/dev/ttyUSB0  •  tcp://host:60002  •  10.0.0.202",
+                placeholder="/dev/ttyUSB0  •  tcp://host:60002  •  192.168.1.10",
                 id="conn-target")
 
             # Serial-only: baud rate.
@@ -142,7 +142,7 @@ class ConnectionScreen(ModalScreen):
             # WAGO-only: SSH login (stacked so every field is visible).
             with Vertical(id="conn-wago-group", classes="conn-group"):
                 yield Static("WAGO PLC / Linux login (can0 only)", classes="conn-label")
-                yield Input(placeholder="username (e.g. root, eas)", id="conn-user")
+                yield Input(placeholder="username (e.g. root, admin)", id="conn-user")
                 yield Input(placeholder="password", password=True, id="conn-pass")
                 yield Input(value="can0", placeholder="iface (e.g. can0)", id="conn-iface")
 
@@ -165,7 +165,7 @@ class ConnectionScreen(ModalScreen):
         self.query_one("#conn-target-label", Static).update(label)
         placeholder = {"serial": "/dev/ttyUSB0   •   COM5",
                        "tcp": "tcp://host:60002   •   host:port",
-                       "wago": "10.0.0.202 (PLC)   •   192.168.11.105 (Linux)"}.get(kind, "/dev/ttyUSB0")
+                       "wago": "192.168.1.10 (PLC)   •   192.168.1.20 (Linux)"}.get(kind, "/dev/ttyUSB0")
         target = self.query_one("#conn-target", Input)
         target.placeholder = placeholder
         # Don't let a value meant for one type linger in another (e.g. a serial path
